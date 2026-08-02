@@ -1,0 +1,25 @@
+{
+  "name": "cashmemerwebapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cash Memer — cash memo / receipt app for the shop counter, running in a browser on your own computer, with your phone as the barcode scanner.",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "postinstall": "node scripts/vendor.js",
+    "check": "node scripts/check.js"
+  },
+  "dependencies": {
+    "@zxing/library": "^0.21.3",
+    "express": "^4.21.2",
+    "pdfkit": "^0.15.1",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1",
+    "ws": "^8.18.0"
+  }
+}
