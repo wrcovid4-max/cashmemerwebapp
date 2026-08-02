@@ -1,0 +1,291 @@
+/**
+ * English and Urdu.
+ *
+ * Switching language re-renders the current screen in place — no reload, and
+ * nothing you had half-typed is lost. Urdu also flips the whole layout to
+ * right-to-left, which is a document direction change, not a stylesheet swap.
+ *
+ * A missing Urdu string falls back to English rather than showing a key, so a
+ * half-translated screen is still a usable screen.
+ */
+
+const STRINGS = {
+  en: {
+    appName: 'Cash Memer',
+    tagline: 'Receipt organizer',
+
+    dashboard: 'Dashboard',
+    receipts: 'Receipts',
+    newReceipt: 'New receipt',
+    inventory: 'Inventory',
+    priceList: 'Price list',
+    members: 'Members',
+    terminal: 'Terminal',
+    rates: 'Rates',
+    settings: 'Settings',
+
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    edit: 'Edit',
+    add: 'Add',
+    close: 'Close',
+    search: 'Search',
+    clear: 'Clear',
+    all: 'All',
+    active: 'Active',
+    archived: 'Archived',
+    duplicate: 'Duplicate',
+    print: 'Print',
+    share: 'Share',
+    pdf: 'PDF',
+    done: 'Done',
+    generate: 'Generate',
+    none: 'None',
+
+    // receipt form
+    title: 'Title',
+    place: 'Place',
+    locationAddress: 'Location address',
+    currency: 'Currency',
+    paymentMethod: 'Payment method',
+    category: 'Category',
+    date: 'Date',
+    items: 'Items',
+    addItem: 'Add item',
+    addPurchasedItems: 'Add purchased items',
+    productName: 'Product name…',
+    quantity: 'Quantity',
+    price: 'Price',
+    addItemToList: 'Add item to list',
+    customer: 'Customer',
+    name: 'Name',
+    phone: 'Phone',
+    email: 'Email',
+    address: 'Address',
+    discount: 'Discount',
+    taxPercent: 'Tax %',
+    cashGiven: 'Cash given',
+    change: 'Change',
+    subtotal: 'Subtotal',
+    tax: 'Tax',
+    grandTotal: 'Grand total',
+    notePage1: 'Note (page 1)',
+    notePage2: 'Note (page 2, your copy only)',
+    signature: 'Signature',
+    clearSignature: 'Clear & redraw',
+    saveAsDefault: 'Save as default signature',
+    livePreview: 'Live preview',
+    noItems: '— no items —',
+    thankYou: 'Thank you!',
+    draftRestored: 'Draft restored — continue where you left off.',
+    discardDraft: 'Discard draft',
+    phoneScanner: 'Phone scanner',
+    selectMember: 'Pick a saved customer',
+
+    // pairing
+    pairTitle: 'Pair your phone as a scanner',
+    pairBody: 'Scan this QR with your phone (same Wi-Fi). Scanned barcodes appear in the receipt instantly.',
+    pairWaiting: 'Waiting for your phone…',
+    pairConnected: 'Connected — waiting for scans',
+    pairDropped: 'Phone disconnected — it will rejoin on its own',
+    pairKeepOpen: 'You can close this dialog — scanning keeps working while you stay on this page.',
+
+    // history
+    weeklySummary: 'Weekly summary',
+    last7Days: 'Last 7 days',
+    totalSpend: 'Total spend',
+    transactions: 'Transactions',
+    averageValue: 'Average value',
+    topCustomer: 'Top customer',
+    totalTax: 'Total tax',
+    totalDiscount: 'Total discount',
+    generateInsight: 'Generate insight',
+    startDate: 'Start date',
+    endDate: 'End date',
+    selectAll: 'Select all',
+    selected: 'selected',
+    noReceipts: 'No receipts yet. Make one on the New receipt screen.',
+
+    // inventory
+    newProduct: 'New product',
+    totalItems: 'Total items',
+    lowStock: 'Low stock',
+    sellValue: 'Sell value',
+    barcode: 'Barcode',
+    brand: 'Brand',
+    costPrice: 'Cost price',
+    sellingPrice: 'Selling price',
+    stock: 'Stock',
+    unit: 'Unit',
+    archive: 'Archive',
+    unarchive: 'Unarchive',
+
+    // settings
+    appearance: 'Appearance',
+    theme: 'Theme',
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
+    language: 'Language',
+    backupRestore: 'Backup & restore',
+    exportJson: 'Export everything as JSON',
+    importJson: 'Restore from a JSON file',
+    automaticBackup: 'Automatic daily backup',
+    backupFolder: 'Backup folder on this computer',
+    backupNow: 'Back up now',
+    lastBackup: 'Last backup',
+    never: 'never',
+    signIn: 'Sign in with Google',
+    signOut: 'Sign out',
+  },
+
+  ur: {
+    appName: 'کیش میمر',
+    tagline: 'رسید منتظم',
+
+    dashboard: 'ڈیش بورڈ',
+    receipts: 'رسیدیں',
+    newReceipt: 'نئی رسید',
+    inventory: 'انوینٹری',
+    priceList: 'قیمت فہرست',
+    members: 'گاہک',
+    terminal: 'ٹرمینل',
+    rates: 'ریٹ',
+    settings: 'ترتیبات',
+
+    save: 'محفوظ کریں',
+    cancel: 'منسوخ',
+    delete: 'حذف کریں',
+    edit: 'ترمیم',
+    add: 'شامل کریں',
+    close: 'بند کریں',
+    search: 'تلاش',
+    clear: 'صاف کریں',
+    all: 'سب',
+    active: 'فعال',
+    archived: 'محفوظ شدہ',
+    duplicate: 'نقل',
+    print: 'پرنٹ',
+    share: 'شیئر',
+    pdf: 'پی ڈی ایف',
+    done: 'ہو گیا',
+    generate: 'بنائیں',
+    none: 'کوئی نہیں',
+
+    title: 'عنوان',
+    place: 'دکان',
+    locationAddress: 'پتہ',
+    currency: 'کرنسی',
+    paymentMethod: 'ادائیگی کا طریقہ',
+    category: 'قسم',
+    date: 'تاریخ',
+    items: 'اشیاء',
+    addItem: 'شے شامل کریں',
+    addPurchasedItems: 'خریدی گئی اشیاء شامل کریں',
+    productName: 'شے کا نام…',
+    quantity: 'تعداد',
+    price: 'قیمت',
+    addItemToList: 'فہرست میں شامل کریں',
+    customer: 'گاہک',
+    name: 'نام',
+    phone: 'فون',
+    email: 'ای میل',
+    address: 'پتہ',
+    discount: 'رعایت',
+    taxPercent: 'ٹیکس ٪',
+    cashGiven: 'دی گئی رقم',
+    change: 'واپسی',
+    subtotal: 'ذیلی میزان',
+    tax: 'ٹیکس',
+    grandTotal: 'کل میزان',
+    notePage1: 'نوٹ (صفحہ ۱)',
+    notePage2: 'نوٹ (صفحہ ۲، صرف آپ کی کاپی)',
+    signature: 'دستخط',
+    clearSignature: 'صاف کر کے دوبارہ',
+    saveAsDefault: 'بطور طے شدہ دستخط محفوظ کریں',
+    livePreview: 'فوری جھلک',
+    noItems: '— کوئی شے نہیں —',
+    thankYou: 'شکریہ!',
+    draftRestored: 'ڈرافٹ بحال ہو گیا — جہاں چھوڑا تھا وہیں سے جاری رکھیں۔',
+    discardDraft: 'ڈرافٹ ضائع کریں',
+    phoneScanner: 'فون سکینر',
+    selectMember: 'محفوظ گاہک منتخب کریں',
+
+    pairTitle: 'اپنے فون کو سکینر بنائیں',
+    pairBody: 'اس QR کو اپنے فون سے سکین کریں (ایک ہی وائی فائی پر)۔ سکین شدہ بارکوڈ فوراً رسید میں آ جائیں گے۔',
+    pairWaiting: 'فون کا انتظار…',
+    pairConnected: 'منسلک — سکین کا انتظار',
+    pairDropped: 'فون منقطع — یہ خود دوبارہ جڑ جائے گا',
+    pairKeepOpen: 'یہ ونڈو بند کر سکتے ہیں — اس صفحے پر رہتے ہوئے سکیننگ چلتی رہے گی۔',
+
+    weeklySummary: 'ہفتہ وار خلاصہ',
+    last7Days: 'پچھلے ۷ دن',
+    totalSpend: 'کل فروخت',
+    transactions: 'لین دین',
+    averageValue: 'اوسط رقم',
+    topCustomer: 'سرفہرست گاہک',
+    totalTax: 'کل ٹیکس',
+    totalDiscount: 'کل رعایت',
+    generateInsight: 'تجزیہ بنائیں',
+    startDate: 'شروع تاریخ',
+    endDate: 'آخری تاریخ',
+    selectAll: 'سب منتخب کریں',
+    selected: 'منتخب',
+    noReceipts: 'ابھی کوئی رسید نہیں۔ "نئی رسید" سے بنائیں۔',
+
+    newProduct: 'نئی شے',
+    totalItems: 'کل اشیاء',
+    lowStock: 'کم اسٹاک',
+    sellValue: 'فروخت مالیت',
+    barcode: 'بارکوڈ',
+    brand: 'برانڈ',
+    costPrice: 'لاگت',
+    sellingPrice: 'فروخت قیمت',
+    stock: 'اسٹاک',
+    unit: 'اکائی',
+    archive: 'محفوظ کریں',
+    unarchive: 'واپس فعال کریں',
+
+    appearance: 'ظاہری شکل',
+    theme: 'تھیم',
+    system: 'سسٹم',
+    light: 'روشن',
+    dark: 'گہرا',
+    language: 'زبان',
+    backupRestore: 'بیک اپ اور بحالی',
+    exportJson: 'سب کچھ JSON میں محفوظ کریں',
+    importJson: 'JSON فائل سے بحال کریں',
+    automaticBackup: 'روزانہ خودکار بیک اپ',
+    backupFolder: 'اس کمپیوٹر پر بیک اپ فولڈر',
+    backupNow: 'ابھی بیک اپ کریں',
+    lastBackup: 'آخری بیک اپ',
+    never: 'کبھی نہیں',
+    signIn: 'گوگل سے سائن ان',
+    signOut: 'سائن آؤٹ',
+  },
+};
+
+let current = 'en';
+
+export const LANGUAGES = [
+  { code: 'en', label: 'English', dir: 'ltr' },
+  { code: 'ur', label: 'اردو', dir: 'rtl' },
+];
+
+export function setLanguage(code) {
+  current = STRINGS[code] ? code : 'en';
+  const dir = current === 'ur' ? 'rtl' : 'ltr';
+  document.documentElement.lang = current;
+  document.documentElement.dir = dir;
+  return current;
+}
+
+export function getLanguage() {
+  return current;
+}
+
+/** Translate. Falls back to English, then to the key itself. */
+export function t(key) {
+  return STRINGS[current]?.[key] ?? STRINGS.en[key] ?? key;
+}

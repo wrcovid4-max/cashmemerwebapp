@@ -1,0 +1,250 @@
+/* The phone scanner page.
+   Held one-handed, at a counter, often in poor light. Big targets, high
+   contrast, no chrome that is not doing a job. */
+
+:root {
+  --bg: #0b1220;
+  --panel: #111c2e;
+  --line: #1e2b44;
+  --text: #e6edf7;
+  --muted: #8a9ab4;
+  --accent: #22c55e;
+  --danger: #f87171;
+  --amber: #fbbf24;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 2;
+}
+
+.brand strong {
+  display: block;
+  font-size: 17px;
+}
+.brand span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  white-space: nowrap;
+}
+.pill.ok {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.pill.bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.pill.warn {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+}
+
+main {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.viewport {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  max-height: 52vh;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--line);
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A window to aim through. Purely a hint — the reader looks at the whole
+   frame, so a barcode slightly outside the box still reads. */
+.reticle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.reticle span {
+  width: 78%;
+  height: 34%;
+  border: 2px solid color-mix(in srgb, var(--accent) 80%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+}
+
+.camera-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 24px;
+  background: rgba(11, 18, 32, 0.94);
+  text-align: center;
+  font-size: 15px;
+}
+.camera-message strong {
+  font-size: 17px;
+}
+.camera-message .muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.hidden {
+  display: none !important;
+}
+
+.last-scan {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+}
+.last-scan.empty {
+  color: var(--muted);
+  font-weight: 400;
+}
+.last-scan.found {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.last-scan.unknown {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.last-scan small {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.manual {
+  display: flex;
+  gap: 8px;
+}
+.manual input {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 16px; /* 16px or iOS zooms the page on focus */
+}
+.manual input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  padding: 14px 18px;
+  color: var(--text);
+  background: var(--panel);
+}
+button.send {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06240f;
+  font-weight: 700;
+}
+button.ghost {
+  flex: 1;
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.history li span:last-child {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  margin: 0;
+  min-height: 20px;
+}
