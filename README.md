@@ -1,1 +1,347 @@
-# cashmemerwebapp
+# Cash Memer — web app
+
+Cash memo / receipt app for the shop counter. It runs on your own computer, in
+a browser, and uses your phone as the barcode scanner.
+
+---
+
+## ⚠️ Read this first: what a `git clone` will NOT give you
+
+You said GitHub is your only copy of anything. So be clear about what GitHub is
+holding and what it is not.
+
+If you clone this project onto a new computer, **these files do not come with
+it, and you must recreate them by hand:**
+
+| File / folder | What is in it | How to get it back |
+| --- | --- | --- |
+| **`.env`** | Your API keys | Copy `.env.example` to `.env` and paste your keys in again. Get fresh ones from the links in that file. |
+| **`data/`** | **Every receipt, product, customer and setting you have ever entered** | **Only from a JSON export you made yourself.** Nothing else brings it back. |
+| `node_modules/` | Installed packages | `npm install` |
+| `certs/` | The https certificate | Made automatically on next start |
+
+**The middle row is the one that matters.** Your receipts are not in git and
+never will be — a database full of customer phone numbers does not belong in a
+public repository. The only thing that moves your shop between machines is the
+JSON export:
+
+> **Settings → Backup & restore → Export everything as JSON**
+
+Do that now, before you need it. Then turn on **Automatic daily backup** on the
+same screen and point it at a folder that syncs off this machine — a Google
+Drive, Dropbox, OneDrive or iCloud folder. After that it keeps the newest 30
+snapshots on its own and you never have to think about it again.
+
+---
+
+## Starting it
+
+You need **Node.js version 22.5 or newer**. Check what you have by opening a
+terminal and typing:
+
+```bash
+node --version
+```
+
+If it says something lower than `v22.5`, or "command not found", install the
+LTS version from <https://nodejs.org> first.
+
+Then, once:
+
+```bash
+npm install
+```
+
+And every time you want to use it:
+
+```bash
+npm start
+```
+
+Leave that terminal window open. Closing it stops the app. To stop it on
+purpose, click that window and press **Ctrl+C**.
+
+---
+
+## The two addresses
+
+When it starts, it prints something like this:
+
+```
+  ON THIS COMPUTER — open this in your browser:
+      http://localhost:4000
+
+  ON YOUR PHONE — same Wi-Fi as this computer:
+      https://192.168.100.9:4001
+```
+
+**Where those come from.** The first is always `localhost`, which means "this
+same computer". The second is this computer's address on your Wi-Fi — the app
+reads it off your network card at startup, so you never have to go looking for
+it. If this computer has more than one address, it prints the extras
+underneath.
+
+**Why the phone one says `https` and uses a different port.** Phone browsers
+refuse to open the camera on a plain `http` address. That is a rule in the
+browser and there is no way around it. So the app runs a second, encrypted
+server on the next port up, purely so the camera will work.
+
+---
+
+## Pairing your phone as the scanner
+
+1. On the computer, open **New receipt**
+2. Press **📱 Phone scanner** in the top right
+3. Point your phone's camera at the QR code on screen and tap the link
+4. **Your phone will warn that the connection "is not private".** This is
+   expected. It means the certificate was signed by your own computer rather
+   than bought from a company, because a shop computer has no domain name to
+   buy one for. Nothing is wrong.
+   - **iPhone / iPad (Safari):** tap **Show Details**, then **visit this website**, then **Visit Website**
+   - **Android (Chrome):** tap **Advanced**, then **Proceed to … (unsafe)**
+   - You are asked once per phone, not once per sale.
+5. Allow the camera when the phone asks
+6. Point it at a barcode
+
+The barcode appears in the receipt on your computer immediately.
+
+- If the barcode **matches a product** in your Inventory, it is added as a line
+  with its price already filled in.
+- If it **matches nothing**, the computer asks you to name and price it once.
+  After that, the same barcode adds itself every time.
+
+The green dot next to **Phone scanner** — and the badge at the bottom of the
+sidebar — tell you whether the phone is connected right now.
+
+### It is built for a real counter
+
+Your phone will lock, walk out of range, and come back. That is handled:
+
+- The phone **reconnects on its own**, and keeps trying — there is no "pair
+  again" step
+- Scans made **while the phone is offline are queued on the phone** and sent
+  when it comes back
+- Scans made **while the computer's page is closed or reloading are held by the
+  app** and delivered when the page returns
+- Delivery is acknowledged, and each scan carries an id, so a scan can arrive
+  late but **cannot be lost, and cannot be counted twice**
+
+### If the camera will not open
+
+The scanner page always has a **type-it-by-hand box** underneath, and a
+barcode typed there reaches the computer exactly the same way. So a phone with
+a broken camera, or a browser that refuses, is an inconvenience and not a stop.
+
+---
+
+## The receipt
+
+Every receipt makes a **two-page PDF**, and the pages are deliberately
+different:
+
+**Page 1 — the customer's copy.** Store, receipt number, date, time, category,
+payment method, **the customer's name and nothing else about them**, the items,
+subtotal, discount, tax, grand total, cash given, change, the page-1 note, the
+signature, the saved location, and a QR code.
+
+**Page 2 — your copy.** Everything: full customer details including phone,
+email and address, the private page-2 note, the issuer account name and email,
+the signature and the QR code.
+
+Page 1 does not carry a customer's phone number or address, because that page
+gets handed across a counter and does not always stay with the person it
+belongs to.
+
+The QR holds four short fields — receipt number, store, total, timestamp —
+rather than a block of data, so it still scans off thermal paper.
+
+Note 1 defaults to **`Thank You for shopping !!!`** and you can edit it, per
+receipt or permanently in Settings. Note 2 starts empty and never appears on
+page 1.
+
+Downloads are named the same way your Android app names them:
+
+```
+Receipt_41___Mart_Example___20260801_22_32_29___Cash_Memer.pdf
+```
+
+---
+
+## Where your keys go
+
+Every key is optional. Without any of them the app starts normally and
+everything except that one feature works. Each screen says exactly what is
+missing and where to get it.
+
+1. Copy the example file:
+   ```bash
+   cp .env.example .env
+   ```
+   (On Windows, copy `.env.example` in File Explorer and rename the copy to
+   `.env`.)
+2. Open `.env` in any text editor and replace the `PUT_..._HERE` text
+3. Save, and restart the app
+
+| Key | What it turns on | Where to get it |
+| --- | --- | --- |
+| `EXCHANGE_RATE_API_KEY` | Live rates on the Rates screen | <https://www.exchangerate-api.com> |
+| `GEMINI_API_KEY` | One sentence of interpretation on the weekly summary | <https://aistudio.google.com/apikey> |
+| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | Google sign-in, which fills the issuer name on page 2 | <https://console.cloud.google.com/apis/credentials> |
+
+The six weekly numbers are worked out on your own computer and always appear.
+The AI key only ever adds a sentence on top of them.
+
+### The app will refuse to start if a real key ends up in `.env.example`
+
+`.env.example` is tracked by git. Anything in it is visible to everyone who can
+see the repository, forever, even after you delete it. So on every start the
+app checks that file, and if a value in it looks like a real credential it
+stops and tells you how to fix it rather than letting the key leak quietly.
+
+`.env` is in `.gitignore` and is never committed.
+
+---
+
+## The screens
+
+| Screen | What it does |
+| --- | --- |
+| **Dashboard** | Fourteen figures — today, this month, all time, averages, highest and lowest, most-visited store, top product, storage used, pending sync — plus sales over the last 30 days and spend by category |
+| **Receipts** | Every memo issued. Search by title, place or customer; filter by date range; select some or all; bulk print, share or delete. Expand a row for its items, notes, location, payment method and change. Per row: Share, PDF, Print, Duplicate, Edit, Pin, Delete |
+| **New receipt** | Build a memo with a live preview beside the form |
+| **Inventory** | Products with barcode, brand, category, cost, price, stock and unit. Search, All/Active/Archived, low-stock warning, add / edit / duplicate / archive / delete |
+| **Price list** | The short quick-pick list of what you sell most, separate from Inventory. One click puts it on a receipt |
+| **Members** | Customer directory. Picking one on the receipt form fills name, phone, email and address at once |
+| **Terminal** | Scanner pairing state, an event log, diagnostics, and a serial printer connection where the browser supports one |
+| **Rates** | Live exchange rates, USD base, with search and manual refresh. Rates you enter by hand are never overwritten by a refresh |
+| **Settings** | Shop details, theme, printing, backup and restore, Google sign-in |
+
+**Edit** updates the original receipt. **Duplicate** deliberately makes a new
+one. The end date in History covers the whole of that day, not just midnight.
+
+**Drafts save themselves** a beat after you stop typing. If the browser closes
+mid-sale, the sale is waiting for you when you reopen it.
+
+---
+
+## Language and appearance
+
+English and **Urdu** (**کیش میمر**), switched from the bottom of the sidebar
+with no reload. Urdu flips the whole layout right-to-left, not just the text.
+
+Theme is System, Light or Dark in Settings. Dark is the default.
+
+---
+
+## What I ran, and what I did not
+
+I would rather tell you this than have you find out at the counter.
+
+### Verified — I watched these work
+
+- All nine screens load in a real browser with no errors in the console
+- **The phone-scanner feature end to end**, including the awkward parts: a
+  known barcode becoming a priced line; the same barcode twice becoming a
+  quantity rather than a second line; an unknown barcode prompting to create
+  the product and that product landing on the receipt; a phone that
+  disconnects and reconnects still scanning into the same sale; reloading the
+  page mid-sale restoring the draft; and a scan made during that reload being
+  delivered afterwards rather than lost. Eleven checks, all passing —
+  `node test/scanner-flow.mjs`
+- The receipt PDF renders, and its filename matches your sample character for
+  character
+- The receipt layout, checked by measuring your sample PDF pixel by pixel and
+  comparing coordinates with the generated file: the masthead, both rules, the
+  meta block, the items table, every total, the notes and the address block all
+  land on the same coordinates
+- Every API endpoint, against a running server
+- Urdu right-to-left, and the light theme
+- The startup banner, on a machine with a real network address
+
+### Not verified — I could not test these here
+
+- **Printing to an actual printer.** The PDF is produced and opens in the print
+  dialog; I have no printer attached to this machine.
+- **A real phone camera.** I drove the pairing with a simulated phone
+  connection, which exercises the whole link, but not the camera or the barcode
+  reader on real hardware. The reader uses the browser's own barcode support
+  where it exists (Chrome on Android) and a bundled library where it does not
+  (Safari).
+- **The self-signed certificate warning on a real phone.** The certificate is
+  generated and https serves correctly; I have not tapped through the warning
+  on an actual iPhone.
+- **Google sign-in.** No OAuth credentials here, so the round trip to Google is
+  written but unrun. The failure path is handled and names the likely cause.
+- **The live rates and Gemini calls.** No keys here. The missing-key paths are
+  tested; the successful calls are not.
+- **Automatic daily backup firing on its schedule.** "Back up now" works and
+  writes a snapshot; the once-a-day timer has not been watched for a day.
+
+### One thing in your sample PDF that does not add up
+
+Your sample receipt shows: subtotal ₨ 60.00, discount ₨ 50.00, tax 15% shown
+as ₨ 1.50, and a grand total of **₨ 16.50**.
+
+Those do not reconcile. 60 − 50 = 10, and 15% of 10 is the 1.50 shown, which
+makes the total **₨ 11.50**, not 16.50. The change given (₨ 483.50 from ₨ 500)
+matches the 16.50, so the old app was consistently wrong rather than a typo on
+one line.
+
+This app does the arithmetic the way your brief describes it — subtotal, then
+discount, then tax on what is left — so the same receipt totals **₨ 11.50**
+here. If your shop genuinely charges the other way round, tell me and I will
+change it; I did not want to copy something that looked like a bug without
+saying so.
+
+### Two other deliberate differences from the sample
+
+- **Page 2 wraps a long customer address instead of clipping it.** Your sample
+  runs the address off the right edge of the paper and cuts it mid-word. Page 2
+  is your own copy, where the whole address is the reason for printing it.
+- **The address on page 1 may wrap onto a different number of lines** than your
+  sample, because the fonts are not byte-identical. Everything above it lands
+  on exactly the same coordinate.
+
+---
+
+## When something goes wrong
+
+**"Port 4000 is already being used."** Cash Memer is probably already running
+in another terminal window — look for it before doing anything else. To use a
+different port, open `.env` and change `PORT=4000` to `PORT=4010`.
+
+**The phone cannot open the address.** Check the phone is on the same Wi-Fi,
+not mobile data. Some routers have "client isolation" or "AP isolation" turned
+on, which stops devices seeing each other — that setting has to be off. If the
+computer printed more than one address, try the others.
+
+**The page says it cannot reach Cash Memer.** The terminal window was closed.
+Start it again with `npm start`.
+
+**`npm install` fails.** Check `node --version` is 22.5 or newer. This project
+has no packages that need a compiler, so that is nearly always the cause.
+
+---
+
+## What is in the project
+
+```
+server/       the server: database, API, PDF, pairing hub, backups
+public/       everything the browser loads — no build step, no bundler
+shared/       money and totals code used by BOTH the server and the browser,
+              so a total cannot be right on screen and wrong on paper
+assets/fonts/ the fonts the PDF is set in (they carry the ₨ sign)
+test/         optional checks — see test/README.md
+data/         your shop. NOT in git.
+```
+
+There is no build step and no framework. `public/js/dom.js` is 130 lines and is
+the entire rendering toolkit. That is on purpose: the usual reason a project
+stops working on a new machine is a toolchain that will not install, and this
+one has none.
+
+---
+
+## Licence
+
+Private project. Do what you like with it.
