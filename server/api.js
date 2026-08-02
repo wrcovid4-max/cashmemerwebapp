@@ -747,7 +747,7 @@ export function createApi({ urls }) {
 
   api.post(
     '/backup/run',
-    guard(async (req, res) => res.json(runBackupNow())),
+    guard(async (req, res) => res.json(await runBackupNow())),
   );
 
   api.get(

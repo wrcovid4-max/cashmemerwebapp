@@ -11,12 +11,44 @@
  *      that syncs somewhere else (Google Drive, Dropbox, OneDrive, iCloud) and
  *      your shop leaves the building without you having to remember anything.
  */
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdir, readdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { db, allSettings, setSetting, nowIso } from './db.js';
 
 const SNAPSHOT_PREFIX = 'cashmemer-backup-';
 const KEEP_SNAPSHOTS = 30;
+
+/**
+ * How long to wait on the backup folder before giving up on it.
+ *
+ * This matters more than it looks. The README tells you to point the backup
+ * folder at something that syncs off the machine — a Google Drive or Dropbox
+ * folder, or a drive on the network. When one of those is disconnected or
+ * half-mounted, a write to it does not fail; it hangs. Every file call in here
+ * is therefore asynchronous, and capped, so a folder that has gone away costs
+ * you a failed backup and a message saying so — never a frozen till in the
+ * middle of a sale.
+ */
+const FILESYSTEM_TIMEOUT_MS = 20_000;
+
+/** Rejects if the filesystem does not answer in time. */
+function withTimeout(promise, what) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `${what} did not respond within ${FILESYSTEM_TIMEOUT_MS / 1000} seconds. ` +
+                'If this is a synced or network folder, it is probably disconnected.',
+            ),
+          ),
+        FILESYSTEM_TIMEOUT_MS,
+      ).unref(),
+    ),
+  ]);
+}
 
 /** Everything in the database, in one plain object. This is the whole shop. */
 export function exportDatabase() {
@@ -115,16 +147,25 @@ function snapshotName(date = new Date()) {
 }
 
 /** Deletes all but the newest KEEP_SNAPSHOTS files we wrote. */
-function prune(folder) {
+async function prune(folder) {
   let removed = 0;
-  const files = readdirSync(folder)
-    .filter((f) => f.startsWith(SNAPSHOT_PREFIX) && f.endsWith('.json'))
-    .map((f) => ({ f, t: statSync(join(folder, f)).mtimeMs }))
-    .sort((a, b) => b.t - a.t);
+  const names = (await readdir(folder)).filter(
+    (f) => f.startsWith(SNAPSHOT_PREFIX) && f.endsWith('.json'),
+  );
 
-  for (const old of files.slice(KEEP_SNAPSHOTS)) {
+  const dated = [];
+  for (const f of names) {
     try {
-      unlinkSync(join(folder, old.f));
+      dated.push({ f, t: (await stat(join(folder, f))).mtimeMs });
+    } catch {
+      /* A file that vanished under us simply is not a candidate. */
+    }
+  }
+  dated.sort((a, b) => b.t - a.t);
+
+  for (const old of dated.slice(KEEP_SNAPSHOTS)) {
+    try {
+      await unlink(join(folder, old.f));
       removed += 1;
     } catch {
       /* A file we cannot delete is not a reason to fail the backup. */
@@ -135,9 +176,9 @@ function prune(folder) {
 
 /**
  * Writes one snapshot now.
- * @returns {{ok: true, file: string, pruned: number} | {ok: false, error: string}}
+ * @returns {Promise<{ok: true, file: string, pruned: number} | {ok: false, error: string}>}
  */
-export function runBackupNow() {
+export async function runBackupNow() {
   const settings = allSettings();
   const folder = (settings.backupFolder || '').trim();
 
@@ -147,21 +188,42 @@ export function runBackupNow() {
     return { ok: false, error };
   }
 
+  // The snapshot is built before any file is touched, so a slow folder cannot
+  // hold the database open while it decides whether it exists.
+  const contents = JSON.stringify(exportDatabase(), null, 2);
+  const file = join(folder, snapshotName());
+
   try {
-    if (!existsSync(folder)) mkdirSync(folder, { recursive: true });
-    const file = join(folder, snapshotName());
-    writeFileSync(file, JSON.stringify(exportDatabase(), null, 2), 'utf8');
-    const pruned = prune(folder);
-    setSetting('lastBackupAt', nowIso());
-    setSetting('lastBackupError', '');
-    return { ok: true, file, pruned };
+    await withTimeout(mkdir(folder, { recursive: true }), `The folder ${folder}`);
+    await withTimeout(writeFile(file, contents, 'utf8'), `Writing to ${folder}`);
   } catch (err) {
-    // The most common causes are a folder that has been moved or renamed, and
-    // a folder the app is not allowed to write to. Say which, do not just fail.
-    const error = `${err.code === 'EACCES' ? 'No permission to write to' : 'Could not write to'} ${folder} — ${err.message}`;
+    // The usual causes: the folder was moved or renamed, it is not writable,
+    // or it is a synced folder that is currently offline. Say which.
+    const reason =
+      err.code === 'EACCES' || err.code === 'EPERM'
+        ? `No permission to write to ${folder}`
+        : err.code === 'ENOENT' || err.code === 'ENOTDIR'
+          ? `${folder} does not exist, or part of that path is not a folder`
+          : err.code === 'ENOSPC'
+            ? `${folder} is full`
+            : `Could not write to ${folder}`;
+    const error = `${reason} — ${err.message}`;
     setSetting('lastBackupError', error);
     return { ok: false, error };
   }
+
+  // The snapshot is safely written by this point. Failing to tidy up old ones
+  // is worth reporting but does not make this backup a failure.
+  let pruned = 0;
+  try {
+    pruned = await withTimeout(prune(folder), `Tidying old snapshots in ${folder}`);
+  } catch {
+    pruned = 0;
+  }
+
+  setSetting('lastBackupAt', nowIso());
+  setSetting('lastBackupError', '');
+  return { ok: true, file, pruned };
 }
 
 /**
@@ -169,7 +231,12 @@ export function runBackupNow() {
  * a laptop that was shut overnight still gets its snapshot when it wakes.
  */
 export function startBackupSchedule() {
-  const check = () => {
+  let running = false;
+
+  const check = async () => {
+    // A folder that is slow to answer must not have two backups piled onto it.
+    if (running) return;
+
     const settings = allSettings();
     if (!settings.backupEnabled || !settings.backupFolder) return;
 
@@ -177,11 +244,18 @@ export function startBackupSchedule() {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     if (last > dayAgo) return;
 
-    const result = runBackupNow();
-    if (result.ok) {
-      console.log(`[backup] Snapshot written: ${result.file}`);
-    } else {
-      console.warn(`[backup] Failed: ${result.error}`);
+    running = true;
+    try {
+      const result = await runBackupNow();
+      if (result.ok) {
+        console.log(`[backup] Snapshot written: ${result.file}`);
+      } else {
+        console.warn(`[backup] Failed: ${result.error}`);
+      }
+    } catch (err) {
+      console.warn(`[backup] Failed: ${err.message}`);
+    } finally {
+      running = false;
     }
   };
 

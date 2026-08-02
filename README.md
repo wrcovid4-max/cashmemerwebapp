@@ -255,8 +255,17 @@ I would rather tell you this than have you find out at the counter.
   meta block, the items table, every total, the notes and the address block all
   land on the same coordinates
 - Every API endpoint, against a running server
+- **Backup export, wipe and restore as a round trip** — the data came back
+  intact, and a file that is not a Cash Memer backup is refused rather than
+  half-imported. Also that only the newest 30 snapshots survive, that unrelated
+  files in that folder are left alone, and that a backup folder which has gone
+  offline fails with a message instead of taking the app down —
+  `node test/backup.mjs`
 - Urdu right-to-left, and the light theme
 - The startup banner, on a machine with a real network address
+- **A fresh `git clone` on a clean machine**: cloned, `npm install`,
+  `npm start`, and the app came up and served pages with no `.env`, no
+  database and no keys
 
 ### Not verified — I could not test these here
 
@@ -274,8 +283,27 @@ I would rather tell you this than have you find out at the counter.
   written but unrun. The failure path is handled and names the likely cause.
 - **The live rates and Gemini calls.** No keys here. The missing-key paths are
   tested; the successful calls are not.
-- **Automatic daily backup firing on its schedule.** "Back up now" works and
-  writes a snapshot; the once-a-day timer has not been watched for a day.
+- **Automatic daily backup firing on its schedule.** "Back up now" works,
+  writes a snapshot and prunes correctly; the once-a-day timer itself has not
+  been watched for a day.
+
+### One bug found and fixed while testing
+
+Worth telling you about, because it would have hit you and not most people.
+
+The backup was originally written using Node's synchronous file calls. Against
+a folder on this computer that is perfectly fine. Against the folder this
+README tells you to use — a Google Drive, Dropbox or OneDrive folder, or a
+drive on the network — it is not, because when one of those is disconnected a
+write to it does not fail, it hangs. Node runs the whole app on a single
+thread, so that hang froze **everything**: no screens, no receipts, no
+scanner, mid-sale. I reproduced it, and the server had to be killed outright
+rather than stopped.
+
+It is all asynchronous now and capped at 20 seconds. An unreachable backup
+folder costs you a failed backup and a message naming the likely cause; the
+till keeps working. `node test/backup.mjs` checks the app still answers while
+a backup to a dead folder is failing.
 
 ### One thing in your sample PDF that does not add up
 
