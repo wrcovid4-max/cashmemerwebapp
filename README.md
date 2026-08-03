@@ -143,18 +143,18 @@ memo without its own record is not worth keeping. The two pages are
 deliberately different:
 
 **Page 1 — the customer's copy.** Store, receipt number, date, time, category,
-payment method, **the customer's name and nothing else about them**, the items,
-subtotal, discount, tax, grand total, cash given, change, the page-1 note, the
-signature, the saved location, and a QR code.
+payment method, **the customer's name and email**, the items, subtotal,
+discount, tax, grand total, cash given, change, the page-1 note, the signature,
+the saved location, and a QR code.
 
 **Page 2 — your copy.** Everything, with nothing held back: full customer
 details including phone, email and address, the saved location and GPS
 coordinates, **both** notes, the issuer account name and email (from your
 Google sign-in, or typed into Settings), the signature and the QR code.
 
-Page 1 does not carry a customer's phone number or address, because that page
-gets handed across a counter and does not always stay with the person it
-belongs to.
+Page 1 deliberately leaves off the customer's **phone number** and **home
+address**, the page-2 note, and your own account details — that page gets
+handed across a counter and does not always stay with the person it belongs to.
 
 The QR holds four short fields — receipt number, store, total, timestamp —
 rather than a block of data, so it still scans off thermal paper.

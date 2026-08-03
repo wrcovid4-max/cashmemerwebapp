@@ -9,11 +9,12 @@
  *
  * Every receipt is ALWAYS two pages, and they are deliberately different:
  *
- *   Page 1 is the customer's copy. It carries the customer's NAME and nothing
- *          else about them — no phone, no email, no address — and neither the
- *          page-2 note nor the issuing account. It is handed across the
- *          counter, and a customer's phone number should not be on a piece of
- *          paper that ends up in someone else's pocket.
+ *   Page 1 is the customer's copy. It carries their name and their email —
+ *          enough to identify the sale and send the memo on — but never their
+ *          phone number or home address, never the page-2 note, and never the
+ *          issuing account. It is handed across a counter, and a customer's
+ *          phone number should not be on a piece of paper that ends up in
+ *          someone else's pocket.
  *   Page 2 is the shop's copy, and it holds everything: full customer details,
  *          where the sale happened and its coordinates, BOTH notes, and the
  *          issuing account name and email.
@@ -389,9 +390,23 @@ function layoutPage(doc, receipt, totals, qrImage, { page, draw, fonts }) {
   P.leftRight(`Category: ${safe(receipt.category)}`, `Method: ${safe(receipt.payment_method)}`, baseline);
 
   if (!isPage2) {
-    // Customer NAME only. This sheet is handed to the customer.
+    // The customer's own copy: name, and an email to send it to. Deliberately
+    // NOT their phone number or their home address — this sheet is handed
+    // across a counter and does not always stay with the person it belongs to.
     baseline += L.metaRowHeight;
     P.atBaseline(`Customer: ${safe(receipt.customer_name)}`, L.left, baseline);
+    if (safe(receipt.customer_email).trim()) {
+      const lines = P.wrap(
+        `Email: ${safe(receipt.customer_email)}`,
+        L.right - (L.left + 11),
+        false,
+        L.size.body,
+      );
+      lines.forEach((line, i) => {
+        baseline += i === 0 ? L.metaRowHeight : L.addressRowHeight;
+        P.atBaseline(line, L.left + 11, baseline, { size: L.size.body });
+      });
+    }
   } else {
     baseline += L.metaRowHeight;
     P.atBaseline('Customer Details:', L.left, baseline);

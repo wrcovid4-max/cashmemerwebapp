@@ -2,9 +2,10 @@
  * What is on page 1 and what is on page 2.
  *
  * This is the check that matters for privacy: page 1 is handed across the
- * counter, so it must carry the customer's NAME and nothing else about them —
- * no phone, no email, no address — and neither the page-2 note nor the account
- * that issued it. Page 2 is the shop's own copy and must carry everything.
+ * counter, so it carries the customer's name and their email — enough to send
+ * the memo on — but never their phone number or home address, never the
+ * page-2 note, and never the account that issued it. Page 2 is the shop's own
+ * copy and must carry everything.
  *
  * It reads the text back out of the generated PDF rather than trusting the
  * layout code, by decoding the font's ToUnicode map — so it is checking what a
@@ -201,7 +202,6 @@ const p2 = squash(page2 ?? '');
 
 console.log('\n-- page 1 must NOT reveal these --');
 ok('no customer phone number', !p1.includes('03044545431'));
-ok('no customer email', !p1.includes('customer.private@example.com'));
 ok('no customer address', !p1.includes('265/1SectorL'));
 ok('no page-2 note', !p1.includes('PRIVATENOTEFORMEONLY'));
 ok('no issuer account name label', !p1.includes('IssuerAccount'));
@@ -209,6 +209,7 @@ ok('no issuer email', !p1.includes('issuer.account@example.com'));
 
 console.log('\n-- page 1 must show these --');
 ok('the customer name', p1.includes('Customer:UmerButt'));
+ok('the customer email', p1.includes('customer.private@example.com'));
 ok('the heading', p1.includes('CASHMEMO'));
 ok('the receipt number', p1.includes('#41'));
 ok('the item', p1.includes('Courasant'));
