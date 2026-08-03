@@ -122,14 +122,17 @@ function banner() {
 
   if (urls.lanHttp) {
     line('ON YOUR PHONE — same Wi-Fi as this computer:');
-    line(`    ${urls.lanHttps}`);
+    // The two URLs differ in length by one character; pad so the notes line up.
+    const width = Math.max(urls.lanHttp.length, urls.lanHttps.length);
+    line(`    ${pad(urls.lanHttp, width)}   <- normal use, no warning`);
+    line(`    ${pad(urls.lanHttps, width)}   <- needed for the camera`);
     line('');
-    line('    Your phone will warn that the connection "is not private".');
-    line('    That is expected: this computer signed its own certificate,');
-    line('    because a shop computer has no domain name to get a real one');
-    line('    for. Tap Advanced, then Proceed. It is asked once per phone.');
+    line('    Two addresses because phone browsers refuse to open a camera');
+    line('    over plain http. The https one warns that the connection "is');
+    line('    not private" — expected, this computer signed its own');
+    line('    certificate. Tap Advanced, then Proceed. Once per phone.');
     line('');
-    line('    Easier: open Receipts on this computer, press "Phone');
+    line('    Easier: open New receipt on this computer, press "Phone');
     line('    scanner", and point your phone camera at the QR code.');
   } else {
     line('NO NETWORK FOUND — the phone scanner needs Wi-Fi.');

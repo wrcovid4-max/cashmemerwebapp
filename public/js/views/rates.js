@@ -9,6 +9,7 @@ import { h, mount, toast, confirmDialog } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { formatAmount } from '../store.js';
+import { RIAL_PER_TOMAN } from '/shared/currency.js';
 
 /** Turns a currency code into its country flag, e.g. PKR -> 🇵🇰 */
 function flagFor(code) {
@@ -23,6 +24,7 @@ export async function renderRates() {
 
   const root = h('div');
   const statusHost = h('div');
+  const fixedHost = h('.card');
   const customHost = h('.card');
   const listHost = h('.card');
 
@@ -60,6 +62,24 @@ export async function renderRates() {
               h('.grow', `Base USD · updated ${data.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : '—'}`),
               h('button.btn.small', { onclick: () => load(true) }, '↻ Refresh'),
             ),
+    );
+
+    /* --- fixed by definition, so it is stated whether or not rates load --- */
+    mount(
+      fixedHost,
+      h('h2', 'Fixed conversions'),
+      h(
+        '.bar-row',
+        { style: { gridTemplateColumns: '1fr auto' } },
+        h('span', `${flagFor('IRR')} 1 Toman (IRT)`),
+        h('strong', `${RIAL_PER_TOMAN} Iranian Rial (IRR)`),
+      ),
+      h(
+        'p.small.muted',
+        'Iran quotes prices in Toman while the official unit is the Rial. This is a naming ' +
+          'convention, not a market rate, so it never changes and a refresh never touches it. ' +
+          'When live rates are loaded, Toman appears in the table below alongside the Rial.',
+      ),
     );
 
     /* --- your own rates, which a refresh never touches --- */
@@ -184,6 +204,7 @@ export async function renderRates() {
         paint();
       },
     }),
+    fixedHost,
     customHost,
     listHost,
   );

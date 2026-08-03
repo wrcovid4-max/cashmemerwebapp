@@ -75,6 +75,16 @@ export async function openPairingDialog() {
       urlEl,
       h('div', pairing.url),
       h('div', { style: { marginTop: '6px' } }, 'Code: ', h('span.mono', pairing.code)),
+      // The plain link is genuinely useful, not a consolation prize: typing a
+      // barcode by hand needs no camera, so it needs no certificate warning.
+      pairing.insecureUrl
+        ? h(
+            'div',
+            { style: { marginTop: 'var(--s3)' } },
+            h('div.small', 'No camera, or the warning will not clear? Open this instead and type codes:'),
+            h('div', pairing.insecureUrl),
+          )
+        : null,
     );
     paint();
   } catch (err) {

@@ -7,14 +7,16 @@
  * measurements in LAYOUT below were taken off the sample PDF pixel by pixel,
  * not guessed.
  *
- * Two pages, and they are deliberately different:
+ * Every receipt is ALWAYS two pages, and they are deliberately different:
  *
- *   Page 1 is the customer's copy. Customer NAME only — no phone, no email,
- *          no address, no issuer account. It is handed across the counter, and
- *          a customer's phone number should not be on a piece of paper that
- *          ends up in someone else's pocket.
- *   Page 2 is the shop's copy. Everything: full customer details, the issuer
- *          account, and the private page-2 note.
+ *   Page 1 is the customer's copy. It carries the customer's NAME and nothing
+ *          else about them — no phone, no email, no address — and neither the
+ *          page-2 note nor the issuing account. It is handed across the
+ *          counter, and a customer's phone number should not be on a piece of
+ *          paper that ends up in someone else's pocket.
+ *   Page 2 is the shop's copy, and it holds everything: full customer details,
+ *          where the sale happened and its coordinates, BOTH notes, and the
+ *          issuing account name and email.
  *
  * The page is as tall as its contents. That is how the sample is built (its two
  * pages are 1355pt and 1435pt tall) and it is what a receipt wants to be — one
@@ -486,23 +488,34 @@ function layoutPage(doc, receipt, totals, qrImage, { page, draw, fonts }) {
   P.y = baseline + 23;
   P.doubleRule();
 
-  /* --- notes ----------------------------------------------------------- */
-  const noteLabel = isPage2 ? 'Note (Page 2):' : 'Note:';
-  const noteText = safe(isPage2 ? receipt.note2 : receipt.note1).trim();
-  if (noteText) {
+  /* --- notes -----------------------------------------------------------
+   * Page 1 shows note 1 only. Page 2 shows both, because it is the shop's
+   * own record and note 2 is written for exactly that.
+   */
+  const notes = isPage2
+    ? [
+        ['Note:', safe(receipt.note1).trim()],
+        ['Note (Page 2):', safe(receipt.note2).trim()],
+      ].filter(([, text]) => text)
+    : [['Note:', safe(receipt.note1).trim()]].filter(([, text]) => text);
+
+  if (notes.length > 0) {
     baseline = P.y + P.gapAfterLastRule();
-    P.atBaseline(noteLabel, L.left, baseline, { bold: true });
-    const lines = P.wrap(noteText, L.right - L.left - 11, false, L.size.item);
-    lines.forEach((line, i) => {
-      baseline += i === 0 ? 30 : L.addressRowHeight;
-      P.atBaseline(line, L.left + 11, baseline, { size: L.size.item });
+    notes.forEach(([label, text], index) => {
+      if (index > 0) baseline += L.metaRowHeight;
+      P.atBaseline(label, L.left, baseline, { bold: true });
+      const lines = P.wrap(text, L.right - L.left - 11, false, L.size.item);
+      lines.forEach((line, i) => {
+        baseline += i === 0 ? 30 : L.addressRowHeight;
+        P.atBaseline(line, L.left + 11, baseline, { size: L.size.item });
+      });
     });
     P.y = baseline + 35;
     P.rule();
   }
 
-  /* --- where the sale happened (page 1 only, as in the sample) --------- */
-  const hasLocation = !isPage2 && (safe(receipt.location_address).trim() || receipt.lat != null);
+  /* --- where the sale happened; on both pages ------------------------- */
+  const hasLocation = safe(receipt.location_address).trim() || receipt.lat != null;
   if (hasLocation) {
     baseline = P.y + P.gapAfterLastRule();
     P.atBaseline('Saved Location:', L.left, baseline, { bold: true });
@@ -636,6 +649,8 @@ function totalsOf(receipt) {
     discount: receipt.discount,
     taxPercent: receipt.tax_percent,
     cashGiven: receipt.cash_given,
+    // The rule this receipt was issued under, not whatever Settings says today.
+    taxBase: receipt.tax_base,
   });
 }
 
@@ -661,15 +676,15 @@ async function qrImageFor(receipt, totals) {
  * in the share sheet — and there is no PDF-merging dependency to install.
  *
  * @param {object[]} receipts receipt rows, each with an `items` array
- * @param {{pages?: 'page1'|'page2'|'both'}} [options]
  * @returns {Promise<Buffer>}
  */
-export async function renderReceiptsPdf(receipts, options = {}) {
+export async function renderReceiptsPdf(receipts) {
   const list = (Array.isArray(receipts) ? receipts : [receipts]).filter(Boolean);
   if (list.length === 0) throw new Error('There are no receipts to print.');
 
-  const which = options.pages ?? 'both';
-  const wanted = which === 'both' ? [1, 2] : which === 'page2' ? [2] : [1];
+  // Always both. Page 1 is the customer's, page 2 is the shop's, and a memo
+  // that exists without its own record is not a memo worth keeping.
+  const wanted = [1, 2];
 
   const set = chooseFontSet(list.map(textOfReceipt).join(' '));
   if (!set) {
@@ -728,9 +743,8 @@ export async function renderReceiptsPdf(receipts, options = {}) {
  * Builds the memo for a single receipt.
  *
  * @param {object} receipt a receipt row with an `items` array
- * @param {{pages?: 'page1'|'page2'|'both'}} [options]
  * @returns {Promise<Buffer>}
  */
-export function renderReceiptPdf(receipt, options = {}) {
-  return renderReceiptsPdf([receipt], options);
+export function renderReceiptPdf(receipt) {
+  return renderReceiptsPdf([receipt]);
 }

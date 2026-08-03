@@ -13,8 +13,8 @@ import { Router } from 'express';
 import QRCode from 'qrcode';
 import { db, allSettings, setSetting, nowIso, nextReceiptNumber, DEFAULT_SETTINGS } from './db.js';
 import { env, featureStatus } from './env.js';
-import { computeTotals } from '../shared/totals.js';
-import { CURRENCIES } from '../shared/currency.js';
+import { computeTotals, TAX_BASES, DEFAULT_TAX_BASE } from '../shared/totals.js';
+import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
@@ -49,6 +49,9 @@ function receiptWithItems(row) {
     discount: row.discount,
     taxPercent: row.tax_percent,
     cashGiven: row.cash_given,
+    // The rule the receipt was issued under, so an old memo cannot re-total
+    // itself because the shop changed its mind later.
+    taxBase: row.tax_base,
   });
   return { ...row, items, totals };
 }
@@ -74,6 +77,9 @@ function receiptFields(body) {
     payment_method: str(body.payment_method ?? body.paymentMethod, 'Cash'),
     discount: num(body.discount),
     tax_percent: num(body.tax_percent ?? body.taxPercent),
+    tax_base: TAX_BASES.includes(body.tax_base ?? body.taxBase)
+      ? (body.tax_base ?? body.taxBase)
+      : (allSettings().taxBase ?? DEFAULT_TAX_BASE),
     cash_given: num(body.cash_given ?? body.cashGiven),
     note1: str(body.note1),
     note2: str(body.note2),
@@ -502,8 +508,8 @@ export function createApi({ urls }) {
    * tab where Ctrl+P reaches the printer, rather than dropping a file in
    * Downloads that has to be found and opened by hand.
    */
-  const sendPdf = async (res, receipts, pages, downloadName) => {
-    const buffer = await renderReceiptsPdf(receipts, { pages });
+  const sendPdf = async (res, receipts, downloadName) => {
+    const buffer = await renderReceiptsPdf(receipts);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
     res.send(buffer);
@@ -514,8 +520,7 @@ export function createApi({ urls }) {
     guard(async (req, res) => {
       const row = loadReceipt(req.params.id);
       if (!row) throw new Error('That receipt no longer exists.');
-      const pages = str(req.query.pages, allSettings().massPrintOption || 'both');
-      await sendPdf(res, [row], pages, receiptFileName(row));
+      await sendPdf(res, [row], receiptFileName(row));
     }),
   );
 
@@ -523,10 +528,9 @@ export function createApi({ urls }) {
     '/receipts/bulk-pdf',
     guard(async (req, res) => {
       const ids = (req.body?.ids ?? []).map(Number).filter(Number.isFinite);
-      const pages = str(req.body?.pages, allSettings().massPrintOption || 'both');
       const rows = ids.map((id) => loadReceipt(id)).filter(Boolean);
       const name = `Cash_Memer_${rows.length}_receipts.pdf`;
-      await sendPdf(res, rows, pages, name);
+      await sendPdf(res, rows, name);
     }),
   );
 
@@ -624,7 +628,7 @@ export function createApi({ urls }) {
       const cached = getSetting_ratesCache();
       const fresh = cached && Date.now() - new Date(cached.fetchedAt).getTime() < 3600 * 1000;
       if (fresh && !req.query.refresh) {
-        res.json({ ready: true, ...cached, custom });
+        res.json({ ready: true, ...cached, rates: withDerivedRates(cached.rates), custom });
         return;
       }
 
@@ -638,13 +642,14 @@ export function createApi({ urls }) {
         }
         const payload = { base: 'USD', rates: data.conversion_rates, fetchedAt: nowIso() };
         setSetting('ratesCache', payload);
-        res.json({ ready: true, ...payload, custom });
+        res.json({ ready: true, ...payload, rates: withDerivedRates(payload.rates), custom });
       } catch (err) {
         // A rate screen that has gone stale is far better than one that is blank.
         res.json({
           ready: Boolean(cached),
           error: `Could not reach exchangerate-api.com — ${err.message}`,
           ...(cached ?? { base: 'USD', rates: {}, fetchedAt: null }),
+          rates: withDerivedRates(cached?.rates ?? {}),
           custom,
           stale: Boolean(cached),
         });

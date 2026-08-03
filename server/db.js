@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   discount         REAL    NOT NULL DEFAULT 0,
   tax_percent      REAL    NOT NULL DEFAULT 0,
   cash_given       REAL    NOT NULL DEFAULT 0,
+  tax_base         TEXT    NOT NULL DEFAULT 'after-discount',
   note1            TEXT    DEFAULT '',
   note2            TEXT    DEFAULT '',
   signature        TEXT    DEFAULT '',
@@ -117,6 +118,26 @@ CREATE TABLE IF NOT EXISTS drafts (
 `);
 
 /* ------------------------------------------------------------------ *
+ * migrations
+ *
+ * A database made by an older version of the app must open and keep working.
+ * Losing a shop's receipts to a schema change is exactly the disaster this
+ * project exists to avoid, so columns are only ever added, never removed or
+ * retyped, and every add carries a default that makes old rows correct.
+ * ------------------------------------------------------------------ */
+
+function addColumnIfMissing(table, column, definition) {
+  const existing = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (existing.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  console.log(`[db] Added ${table}.${column}`);
+}
+
+// Receipts issued before the tax rule became a choice were all worked out with
+// tax applied after the discount, so that is the right value for them.
+addColumnIfMissing('receipts', 'tax_base', "TEXT NOT NULL DEFAULT 'after-discount'");
+
+/* ------------------------------------------------------------------ *
  * settings — a tiny key/value store, values are JSON
  * ------------------------------------------------------------------ */
 
@@ -131,9 +152,8 @@ const DEFAULT_SETTINGS = {
   autoSend: false,
   saveSignature: true,
   defaultSignature: '',
-  massPrintOption: 'both', // 'page1' | 'page2' | 'both'
-  showPage1: true,
-  showPage2: true,
+  // Which amount the tax percentage applies to. See shared/totals.js.
+  taxBase: 'after-discount',
   issuerName: '',
   issuerEmail: '',
   backupFolder: '',

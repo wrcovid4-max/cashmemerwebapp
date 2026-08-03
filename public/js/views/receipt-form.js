@@ -52,6 +52,9 @@ function blankReceipt() {
     payment_method: 'Cash',
     discount: 0,
     tax_percent: 0,
+    // Recorded on the receipt as it is issued, so changing the rule in
+    // Settings later cannot re-total a memo already handed to a customer.
+    tax_base: s.taxBase ?? 'after-discount',
     cash_given: 0,
     // Page 1's note has a default because almost every memo wants it, and
     // retyping it forty times a day is not a feature.
@@ -114,6 +117,7 @@ export async function renderReceiptForm({ params, go }) {
       discount: receipt.discount,
       taxPercent: receipt.tax_percent,
       cashGiven: receipt.cash_given,
+      taxBase: receipt.tax_base,
     });
 
   /** One place that repaints the preview and the totals box. */
@@ -401,11 +405,7 @@ export async function renderReceiptForm({ params, go }) {
       toast(editId ? `Receipt #${saved.number} updated.` : `Receipt #${saved.number} saved.`);
 
       if (store.settings.autoPrint) {
-        await openPdf(
-          api.receipts.pdfUrl(saved.id, store.settings.massPrintOption),
-          'print',
-          `receipt-${saved.number}.pdf`,
-        );
+        await openPdf(api.receipts.pdfUrl(saved.id), 'print', `receipt-${saved.number}.pdf`);
       }
 
       if (store.settings.autoSend) sendToCustomer(saved);
@@ -427,6 +427,7 @@ export async function renderReceiptForm({ params, go }) {
       discount: saved.discount,
       taxPercent: saved.tax_percent,
       cashGiven: saved.cash_given,
+      taxBase: saved.tax_base,
     });
     const body =
       `Receipt #${saved.number} from ${saved.place || 'our shop'}\n` +
@@ -630,7 +631,17 @@ export async function renderReceiptForm({ params, go }) {
         '.grid-3',
         { style: { marginTop: 'var(--s5)' } },
         h('.field', h('label', t('discount')), h('input', bind('discount', { type: 'number', numeric: true }))),
-        h('.field', h('label', t('taxPercent')), h('input', bind('tax_percent', { type: 'number', numeric: true }))),
+        h(
+          '.field',
+          h('label', t('taxPercent')),
+          h('input', bind('tax_percent', { type: 'number', numeric: true })),
+          h(
+            'span.small.muted',
+            receipt.tax_base === 'before-discount'
+              ? 'charged on the price before discount'
+              : 'charged after the discount',
+          ),
+        ),
         h('.field', h('label', t('cashGiven')), h('input', bind('cash_given', { type: 'number', numeric: true }))),
       ),
       h('.totals-box'),

@@ -249,7 +249,7 @@ els.manualForm.addEventListener('submit', (e) => {
  * the camera
  * ------------------------------------------------------------------ */
 
-function showCameraMessage(title, body, extra) {
+function showCameraMessage(title, body, extra, action) {
   els.cameraMessage.classList.remove('hidden');
   els.cameraMessage.innerHTML = '';
   const strong = document.createElement('strong');
@@ -264,6 +264,25 @@ function showCameraMessage(title, body, extra) {
     more.textContent = extra;
     els.cameraMessage.append(more);
   }
+  if (action) {
+    const button = document.createElement('button');
+    button.className = 'send';
+    button.textContent = action.label;
+    button.onclick = action.onClick;
+    els.cameraMessage.append(button);
+  }
+}
+
+/**
+ * The same page on the secure address, carrying the pairing code across.
+ *
+ * Being here over plain http is the single most likely reason the camera will
+ * not start, and it used to mean walking back to the computer. One tap now.
+ */
+function secureUrlForThisPage() {
+  if (location.protocol === 'https:') return null;
+  const httpsPort = Number(location.port || 80) + 1;
+  return `https://${location.hostname}:${httpsPort}${location.pathname}${location.search}`;
 }
 
 function hideCameraMessage() {
@@ -291,14 +310,16 @@ async function startCamera() {
 
   if (!navigator.mediaDevices?.getUserMedia) {
     // The usual cause by a mile: the page was opened over plain http.
+    const secure = secureUrlForThisPage();
     showCameraMessage(
       'The camera is not available',
-      location.protocol === 'https:'
-        ? 'This browser will not give the page a camera. Type barcodes in the box below instead — they still reach the computer.'
-        : 'Phone browsers only allow the camera on a secure (https) address.',
-      location.protocol === 'https:'
-        ? ''
-        : 'Go back to your computer, press "Phone scanner" and use the QR code — it points at the https address.',
+      secure
+        ? 'Phone browsers only allow the camera on a secure (https) address.'
+        : 'This browser will not give the page a camera. Type barcodes in the box below instead — they still reach the computer.',
+      secure
+        ? 'Tap below, then accept the certificate warning once. Or just type barcodes in the box below — they reach the computer either way.'
+        : '',
+      secure ? { label: 'Switch to the secure address', onClick: () => location.replace(secure) } : null,
     );
     return;
   }

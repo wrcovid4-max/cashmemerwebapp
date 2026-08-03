@@ -32,7 +32,29 @@ export const CURRENCIES = [
   { code: 'LKR', symbol: 'Rs', name: 'Sri Lankan Rupee' },
   { code: 'AFN', symbol: '؋', name: 'Afghan Afghani' },
   { code: 'IRR', symbol: '﷼', name: 'Iranian Rial' },
+  // Iran prices in Toman in practice, while the official unit is the Rial.
+  // One Toman is ten Rial, always — it is a naming convention, not a rate that
+  // moves, so it is derived rather than fetched. See RIAL_PER_TOMAN.
+  { code: 'IRT', symbol: 'T', name: 'Iranian Toman' },
 ];
+
+/** One Toman is ten Rial. Fixed by definition, not by any exchange. */
+export const RIAL_PER_TOMAN = 10;
+
+/**
+ * Adds the rates that are fixed by definition rather than published.
+ *
+ * Iran quotes prices in Toman while the official unit is the Rial, and one
+ * Toman is always ten Rial. No rate provider returns IRT, so it is derived
+ * from the Rial. If a provider ever does start returning it, its number wins.
+ *
+ * @param {Record<string, number>} rates rates against the base currency
+ */
+export function withDerivedRates(rates) {
+  if (!rates || typeof rates !== 'object') return rates;
+  if (rates.IRT !== undefined || typeof rates.IRR !== 'number') return rates;
+  return { ...rates, IRT: rates.IRR / RIAL_PER_TOMAN };
+}
 
 const BY_CODE = new Map(CURRENCIES.map((c) => [c.code, c]));
 

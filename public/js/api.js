@@ -77,7 +77,7 @@ export const api = {
     pin: (id) => request('POST', `/api/receipts/${id}/pin`, {}),
     remove: (id) => request('DELETE', `/api/receipts/${id}`),
     bulkDelete: (ids) => request('POST', '/api/receipts/bulk-delete', { ids }),
-    pdfUrl: (id, pages) => `/api/receipts/${id}/pdf${pages ? `?pages=${pages}` : ''}`,
+    pdfUrl: (id) => `/api/receipts/${id}/pdf`,
   },
 
   summary: {

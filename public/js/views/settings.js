@@ -153,22 +153,54 @@ export async function renderSettings() {
       ),
       toggle('saveSignature', 'Remember my signature', 'Reuse the last signature on the next receipt.'),
       h(
-        '.field',
+        'p.small.muted',
         { style: { marginTop: 'var(--s4)' } },
-        h('label', 'Which pages print'),
+        'Every receipt is always two pages: page 1 for the customer, page 2 for ' +
+          'you. Page 1 never carries the customer’s phone, email or address, ' +
+          'the page-2 note, or your account details.',
+      ),
+    ),
+
+    /* ---- how tax is worked out ---- */
+    h(
+      '.card',
+      h('h2', 'Tax'),
+      h(
+        '.field',
+        h('label', 'Tax percentage is charged on'),
         h(
           'select',
           {
             onchange: async (e) => {
-              await saveSettings({ massPrintOption: e.target.value });
-              toast('Saved.');
+              await saveSettings({ taxBase: e.target.value });
+              toast('Saved. This applies to new receipts.');
             },
           },
           [
-            ['both', 'Both pages'],
-            ['page1', "Page 1 only — the customer's copy"],
-            ['page2', 'Page 2 only — your copy'],
-          ].map(([value, label]) => h('option', { value, selected: s.massPrintOption === value }, label)),
+            ['after-discount', 'The amount after the discount (usual)'],
+            ['before-discount', 'The full price, before any discount'],
+          ].map(([value, label]) => h('option', { value, selected: s.taxBase === value }, label)),
+        ),
+      ),
+      h(
+        '.notice',
+        { style: { marginTop: 'var(--s3)' } },
+        h(
+          '.grow',
+          h('strong', 'Worked example'),
+          h(
+            'p.small',
+            s.taxBase === 'before-discount'
+              ? 'A ₨60 sale with a ₨50 discount at 15%: tax is 15% of ₨60 = ₨9.00, ' +
+                'so the customer pays ₨19.00.'
+              : 'A ₨60 sale with a ₨50 discount at 15%: tax is 15% of the ₨10 actually ' +
+                'paid = ₨1.50, so the customer pays ₨11.50.',
+          ),
+          h(
+            'p.small.muted',
+            'Each receipt remembers the rule it was issued under, so changing this ' +
+              'never alters a memo you have already given someone.',
+          ),
         ),
       ),
     ),

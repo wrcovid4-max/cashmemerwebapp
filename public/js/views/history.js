@@ -165,7 +165,6 @@ export async function renderHistory({ go }) {
 
   function expandedBody(r) {
     const filename = `Receipt_${r.number}.pdf`;
-    const pages = store.settings.massPrintOption || 'both';
 
     const act = async (fn) => {
       try {
@@ -217,17 +216,17 @@ export async function renderHistory({ go }) {
         '.row-actions',
         h(
           'button.btn.small',
-          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id, pages), 'share', filename)) },
+          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id), 'share', filename)) },
           `↗ ${t('share')}`,
         ),
         h(
           'button.btn.small',
-          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id, pages), 'download', filename)) },
+          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id), 'download', filename)) },
           `⬇ ${t('pdf')}`,
         ),
         h(
           'button.btn.small',
-          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id, pages), 'print', filename)) },
+          { onclick: () => act(() => openPdf(api.receipts.pdfUrl(r.id), 'print', filename)) },
           `🖨 ${t('print')}`,
         ),
         h(
@@ -284,13 +283,12 @@ export async function renderHistory({ go }) {
       return;
     }
     const ids = [...selected];
-    const pages = store.settings.massPrintOption || 'both';
 
     const bulkPdf = async (mode) => {
       const response = await fetch('/api/receipts/bulk-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, pages }),
+        body: JSON.stringify({ ids }),
       });
       if (!response.ok) throw new Error('Those receipts could not be produced.');
       const blob = await response.blob();

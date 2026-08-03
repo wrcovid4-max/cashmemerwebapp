@@ -17,6 +17,17 @@ const browser = await chromium.launch(LAUNCH);
 const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 
+// Start from an empty counter, so this can be run twice in a row and mean the
+// same thing both times. Drafts are saved on purpose and would otherwise carry
+// the previous run's items into this one, and the product the run creates from
+// an "unknown" barcode would stop that barcode being unknown a second time.
+const UNKNOWN_BARCODE = '999000111222';
+await fetch(`${BASE}/api/draft`, { method: 'DELETE' });
+const known = await fetch(`${BASE}/api/products/barcode/${UNKNOWN_BARCODE}`).then((r) => r.json());
+if (known.found) {
+  await fetch(`${BASE}/api/products/${known.product.id}`, { method: 'DELETE' });
+}
+
 await page.goto(`${BASE}/#/new`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(600);
 
@@ -56,7 +67,7 @@ const qty = await page.locator('.item-row input').nth(1).inputValue();
 ok(`second scan increments quantity instead of adding a row (rows=${rows}, qty=${qty})`, rows === 1 && qty === '2');
 
 // 5. an unknown barcode asks to create the product
-phone.send(JSON.stringify({ type: 'scan', barcode: '999000111222' }));
+phone.send(JSON.stringify({ type: 'scan', barcode: UNKNOWN_BARCODE }));
 await page.waitForSelector('.dialog h2:has-text("New barcode")', { timeout: 4000 });
 ok('unknown barcode prompts to create the product', true);
 await page.screenshot({ path: `${SHOT}/shot-unknown.png` });

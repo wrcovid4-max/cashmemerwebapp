@@ -72,7 +72,8 @@ When it starts, it prints something like this:
       http://localhost:4000
 
   ON YOUR PHONE — same Wi-Fi as this computer:
-      https://192.168.100.9:4001
+      http://192.168.100.9:4000    <- normal use, no warning
+      https://192.168.100.9:4001   <- needed for the camera
 ```
 
 **Where those come from.** The first is always `localhost`, which means "this
@@ -81,10 +82,11 @@ reads it off your network card at startup, so you never have to go looking for
 it. If this computer has more than one address, it prints the extras
 underneath.
 
-**Why the phone one says `https` and uses a different port.** Phone browsers
-refuse to open the camera on a plain `http` address. That is a rule in the
-browser and there is no way around it. So the app runs a second, encrypted
-server on the next port up, purely so the camera will work.
+**Why the phone gets two.** Phone browsers refuse to open the camera on a plain
+`http` address — a rule in the browser, with no way around it on a home
+network. So the app runs a second, encrypted server on the next port up, purely
+so the camera works. Use the plain `http` one for everything else, including
+typing barcodes by hand; it never warns you about anything.
 
 ---
 
@@ -136,17 +138,19 @@ a broken camera, or a browser that refuses, is an inconvenience and not a stop.
 
 ## The receipt
 
-Every receipt makes a **two-page PDF**, and the pages are deliberately
-different:
+**Every receipt is always a two-page PDF.** There is no one-page option — a
+memo without its own record is not worth keeping. The two pages are
+deliberately different:
 
 **Page 1 — the customer's copy.** Store, receipt number, date, time, category,
 payment method, **the customer's name and nothing else about them**, the items,
 subtotal, discount, tax, grand total, cash given, change, the page-1 note, the
 signature, the saved location, and a QR code.
 
-**Page 2 — your copy.** Everything: full customer details including phone,
-email and address, the private page-2 note, the issuer account name and email,
-the signature and the QR code.
+**Page 2 — your copy.** Everything, with nothing held back: full customer
+details including phone, email and address, the saved location and GPS
+coordinates, **both** notes, the issuer account name and email (from your
+Google sign-in, or typed into Settings), the signature and the QR code.
 
 Page 1 does not carry a customer's phone number or address, because that page
 gets handed across a counter and does not always stay with the person it
@@ -155,9 +159,22 @@ belongs to.
 The QR holds four short fields — receipt number, store, total, timestamp —
 rather than a block of data, so it still scans off thermal paper.
 
-Note 1 defaults to **`Thank You for shopping !!!`** and you can edit it, per
-receipt or permanently in Settings. Note 2 starts empty and never appears on
-page 1.
+Note 1 defaults to **`Thank You for shopping !!!`** on every receipt. You can
+change it on the receipt itself, or change the default in Settings. Note 2
+starts empty, is yours, and never appears on page 1.
+
+### How tax is worked out
+
+**Settings → Tax** chooses what the tax percentage applies to:
+
+| Choice | A ₨60 sale, ₨50 discount, 15% tax |
+| --- | --- |
+| **After the discount** (default) | tax on the ₨10 paid = ₨1.50, total **₨11.50** |
+| Before the discount | tax on the full ₨60 = ₨9.00, total **₨19.00** |
+
+Each receipt records the rule it was issued under. Changing this setting
+affects new receipts only — it can never re-total a memo you already handed to
+a customer.
 
 Downloads are named the same way your Android app names them:
 
@@ -213,7 +230,7 @@ stops and tells you how to fix it rather than letting the key leak quietly.
 | **Price list** | The short quick-pick list of what you sell most, separate from Inventory. One click puts it on a receipt |
 | **Members** | Customer directory. Picking one on the receipt form fills name, phone, email and address at once |
 | **Terminal** | Scanner pairing state, an event log, diagnostics, and a serial printer connection where the browser supports one |
-| **Rates** | Live exchange rates, USD base, with search and manual refresh. Rates you enter by hand are never overwritten by a refresh |
+| **Rates** | Live exchange rates, USD base, with search and manual refresh. **1 Toman = 10 Iranian Rial** is shown as a fixed conversion and Toman appears in the live table alongside the Rial. Rates you enter by hand are never overwritten by a refresh |
 | **Settings** | Shop details, theme, printing, backup and restore, Google sign-in |
 
 **Edit** updates the original receipt. **Duplicate** deliberately makes a new
@@ -261,6 +278,12 @@ I would rather tell you this than have you find out at the counter.
   files in that folder are left alone, and that a backup folder which has gone
   offline fails with a message instead of taking the app down —
   `node test/backup.mjs`
+- **Which fields appear on which page of the memo** — 28 checks that read the
+  text back out of the generated PDF, confirming page 1 does not carry the
+  customer's phone, email or address, the page-2 note or the issuer account,
+  and that page 2 carries all of it — `node test/pdf-pages.mjs`
+- The tax setting, both ways, including that flipping it leaves an existing
+  receipt's total untouched
 - Urdu right-to-left, and the light theme
 - The startup banner, on a machine with a real network address
 - **A fresh `git clone` on a clean machine**: cloned, `npm install`,
@@ -305,21 +328,21 @@ folder costs you a failed backup and a message naming the likely cause; the
 till keeps working. `node test/backup.mjs` checks the app still answers while
 a backup to a dead folder is failing.
 
-### One thing in your sample PDF that does not add up
+### One thing in your sample PDF that does not add up — now a setting
 
 Your sample receipt shows: subtotal ₨ 60.00, discount ₨ 50.00, tax 15% shown
 as ₨ 1.50, and a grand total of **₨ 16.50**.
 
-Those do not reconcile. 60 − 50 = 10, and 15% of 10 is the 1.50 shown, which
-makes the total **₨ 11.50**, not 16.50. The change given (₨ 483.50 from ₨ 500)
-matches the 16.50, so the old app was consistently wrong rather than a typo on
-one line.
+Those do not reconcile, and not because of a different convention — I checked
+both. Tax after the discount gives ₨ 11.50; tax on the full price gives
+₨ 19.00. Neither produces 16.50. The change given (₨ 483.50 from ₨ 500)
+matches 16.50 too, so the old app was consistently wrong rather than mistyped
+once.
 
-This app does the arithmetic the way your brief describes it — subtotal, then
-discount, then tax on what is left — so the same receipt totals **₨ 11.50**
-here. If your shop genuinely charges the other way round, tell me and I will
-change it; I did not want to copy something that looked like a bug without
-saying so.
+Rather than pick for you, **Settings → Tax** now offers both rules, defaulting
+to tax-after-discount. Whichever you choose is stamped onto each receipt as it
+is issued, so changing your mind later cannot alter a memo you have already
+given someone.
 
 ### Two other deliberate differences from the sample
 
