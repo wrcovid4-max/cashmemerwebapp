@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Cash Memer — files git must never carry.
+#
+# IMPORTANT, read this if you are moving to a new computer:
+# everything listed here does NOT come back from `git clone`.
+# See the "What a git clone will NOT give you" section of README.md.
+# ---------------------------------------------------------------------------
+
+# Your real secrets. Never tracked. Recreate by hand from .env.example.
+.env
+.env.local
+.env.*.local
+
+# Installed packages — recreated by `npm install`
+node_modules/
+
+# Your shop's database, drafts and backup snapshots — recreated only from
+# your own JSON export. Git will NOT save these for you.
+data/
+
+# Self-signed HTTPS certificate — regenerated automatically on next start
+certs/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+npm-debug.log*
