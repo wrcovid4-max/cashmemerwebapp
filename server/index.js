@@ -24,6 +24,7 @@ import { ensureCertificate } from './certs.js';
 import { attachScanHub } from './scanhub.js';
 import { createApi } from './api.js';
 import { startBackupSchedule } from './backup.js';
+import { requireSignIn, hasPasscode } from './auth.js';
 
 ensureDirs();
 seedIfEmpty();
@@ -57,6 +58,13 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+
+// Nothing below this line is reachable without the passcode, except the lock
+// screen itself. It sits above every route on purpose — a route added later
+// is protected by default rather than by remembering to protect it.
+app.use(requireSignIn);
+
+app.get('/login', (req, res) => res.sendFile(join(PUBLIC_DIR, 'login.html')));
 
 app.use('/api', createApi({ urls }));
 

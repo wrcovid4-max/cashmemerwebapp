@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { signIn, playwrightCookie } from './helpers.mjs';
 
 // CHROME_PATH pins a specific browser; without it Playwright uses its own.
 const LAUNCH = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {};
@@ -6,8 +7,11 @@ const LAUNCH = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PA
 const BASE = 'http://localhost:4000';
 const SHOT = process.env.SHOT_DIR ?? '/tmp';
 
+const cookie = await signIn();
 const browser = await chromium.launch(LAUNCH);
-const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+await context.addCookies(playwrightCookie(cookie));
+const page = await context.newPage();
 
 const problems = [];
 page.on('console', (m) => {

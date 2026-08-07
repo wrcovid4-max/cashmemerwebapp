@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1220" />
+    <title>Cash Memer — locked</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/css/app.css" />
+    <style>
+      /* The lock screen is the only page that is not the app, so it carries
+         the little layout it needs rather than adding it to the stylesheet. */
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        padding: var(--s5);
+      }
+      .lock {
+        width: min(400px, 100%);
+        display: grid;
+        gap: var(--s5);
+      }
+      .lock .brand {
+        justify-content: center;
+        padding: 0;
+      }
+      .lock .card {
+        display: grid;
+        gap: var(--s4);
+      }
+      /* Big, widely spaced, and centred — this gets typed on a phone, at a
+         counter, often one-handed. */
+      #passcode {
+        font-size: 26px;
+        letter-spacing: 0.35em;
+        text-align: center;
+        padding: var(--s4);
+      }
+      #passcode::placeholder {
+        letter-spacing: normal;
+        font-size: 15px;
+      }
+      .lock .why {
+        text-align: center;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="lock">
+      <div class="brand">
+        <div class="logo">CM</div>
+        <div>
+          <div class="name">Cash Memer</div>
+          <div class="tagline" id="tagline">Locked</div>
+        </div>
+      </div>
+
+      <form class="card" id="form" autocomplete="off">
+        <h2 id="heading">Enter your passcode</h2>
+        <p class="small muted why" id="why">
+          This till is on your Wi-Fi, so it asks who you are before it opens.
+        </p>
+
+        <div class="field">
+          <label for="passcode" id="label">Passcode</label>
+          <input
+            id="passcode"
+            type="password"
+            inputmode="numeric"
+            autocomplete="current-password"
+            placeholder="••••"
+            required
+            autofocus
+          />
+        </div>
+
+        <div class="field hidden" id="confirmField">
+          <label for="confirm">Type it again</label>
+          <input id="confirm" type="password" autocomplete="new-password" placeholder="••••" />
+        </div>
+
+        <div id="message"></div>
+
+        <button class="btn primary" type="submit" id="submit" style="justify-content: center">
+          Unlock
+        </button>
+
+        <p class="small muted why" id="footnote"></p>
+      </form>
+    </main>
+
+    <script type="module" src="/js/login.js"></script>
+  </body>
+</html>

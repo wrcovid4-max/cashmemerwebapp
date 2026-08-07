@@ -18,6 +18,11 @@ import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
+import {
+  hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
+  destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
+  readCookie, isSignedIn, lockoutRemainingMs, recordMiss, clearMisses, COOKIE_NAME,
+} from './auth.js';
 
 /* ------------------------------------------------------------------ *
  * helpers
@@ -766,6 +771,104 @@ export function createApi({ urls }) {
         lastBackupError: s.lastBackupError ?? '',
         keep: KEEP_SNAPSHOTS,
       });
+    }),
+  );
+
+  /* ---- the lock on the till -------------------------------------------------- */
+
+  /** Who is knocking, for the purpose of slowing down repeated guesses. */
+  const whoIs = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+
+  api.get(
+    '/auth/state',
+    guard(async (req, res) => {
+      res.json({
+        hasPasscode: hasPasscode(),
+        signedIn: isSignedIn(req),
+        devices: sessionCount(),
+      });
+    }),
+  );
+
+  /** First run only: choose the passcode. Refused once one exists. */
+  api.post(
+    '/auth/setup',
+    guard(async (req, res) => {
+      if (hasPasscode()) {
+        res.status(400).json({
+          error: 'A passcode is already set. Change it in Settings once you are signed in.',
+        });
+        return;
+      }
+      setPasscode(str(req.body?.passcode));
+      const { token, expires } = createSession(str(req.body?.label));
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/auth/login',
+    guard(async (req, res) => {
+      const who = whoIs(req);
+
+      // Someone sitting on your Wi-Fi trying codes gets slower and slower.
+      const wait = lockoutRemainingMs(who);
+      if (wait > 0) {
+        res.status(429).json({
+          error: `Too many wrong tries. Wait ${Math.ceil(wait / 1000)} seconds and try again.`,
+        });
+        return;
+      }
+
+      if (!passcodeMatches(str(req.body?.passcode))) {
+        const nextWait = recordMiss(who);
+        res.status(401).json({
+          error: nextWait
+            ? `Wrong passcode. Next try in ${Math.ceil(nextWait / 1000)} seconds.`
+            : 'Wrong passcode.',
+        });
+        return;
+      }
+
+      clearMisses(who);
+      const { token, expires } = createSession(str(req.body?.label));
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/auth/lock',
+    guard(async (req, res) => {
+      destroySession(readCookie(req, COOKIE_NAME));
+      clearSessionCookie(res);
+      res.json({ ok: true });
+    }),
+  );
+
+  /** Changing the passcode signs every device out. That is the point of it. */
+  api.post(
+    '/auth/passcode',
+    guard(async (req, res) => {
+      if (hasPasscode() && !passcodeMatches(str(req.body?.current))) {
+        res.status(401).json({ error: 'That is not your current passcode.' });
+        return;
+      }
+      setPasscode(str(req.body?.passcode));
+      const { token, expires } = createSession('this device');
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true, signedOutOthers: true });
+    }),
+  );
+
+  /** Sign every device out, including this one. For a lost or stolen phone. */
+  api.post(
+    '/auth/sign-out-everywhere',
+    guard(async (req, res) => {
+      destroyAllSessions();
+      clearSessionCookie(res);
+      res.json({ ok: true });
     }),
   );
 

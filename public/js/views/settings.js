@@ -47,6 +47,105 @@ export async function renderSettings() {
     );
 
   const backupHost = h('div');
+  const lockHost = h('div');
+
+  /** Repaints the passcode card, so the device count stays honest. */
+  async function paintLock() {
+    let state;
+    try {
+      state = await api.lock.state();
+    } catch (err) {
+      mount(lockHost, h('.notice.error', h('.grow.small', err.message)));
+      return;
+    }
+
+    const current = h('input', { type: 'password', placeholder: 'current passcode' });
+    const next = h('input', { type: 'password', placeholder: 'new passcode, 4+ characters' });
+    const again = h('input', { type: 'password', placeholder: 'type the new one again' });
+
+    mount(
+      lockHost,
+      h(
+        '.row-actions',
+        { style: { marginBottom: 'var(--s4)' } },
+        h(
+          `span.badge${state.hasPasscode ? '.ok' : '.bad'}`,
+          h('span.dot'),
+          state.hasPasscode ? 'Locked' : 'NO PASSCODE SET',
+        ),
+        h('span.badge', `${state.devices} device${state.devices === 1 ? '' : 's'} signed in`),
+      ),
+
+      h(
+        '.grid-3',
+        state.hasPasscode ? h('.field', h('label', 'Current'), current) : null,
+        h('.field', h('label', 'New passcode'), next),
+        h('.field', h('label', 'Confirm'), again),
+      ),
+
+      h(
+        '.row-actions',
+        { style: { marginTop: 'var(--s4)' } },
+        h(
+          'button.btn.small.primary',
+          {
+            onclick: async (e) => {
+              if (next.value !== again.value) {
+                toast('The two new passcodes do not match.', 'warn');
+                return;
+              }
+              if (next.value.length < 4) {
+                toast('The passcode needs at least 4 characters.', 'warn');
+                return;
+              }
+              e.currentTarget.disabled = true;
+              try {
+                await api.lock.change(current.value, next.value);
+                toast('Passcode changed. Every other device has been signed out.');
+                paintLock();
+              } catch (err) {
+                toast(err.message, 'error');
+              } finally {
+                e.currentTarget.disabled = false;
+              }
+            },
+          },
+          state.hasPasscode ? 'Change passcode' : 'Set a passcode',
+        ),
+
+        h(
+          'button.btn.small',
+          {
+            onclick: async () => {
+              await api.lock.lockNow();
+              location.replace('/login');
+            },
+          },
+          'Lock this device now',
+        ),
+
+        // For a phone that has been lost, or a device you cannot get back to.
+        h(
+          'button.btn.small.danger',
+          {
+            onclick: async () => {
+              const yes = await confirmDialog({
+                title: 'Sign every device out?',
+                body:
+                  'Every phone and computer, including this one, will have to enter the ' +
+                  'passcode again. Use this if a phone has gone missing.',
+                confirmLabel: 'Sign all out',
+              });
+              if (!yes) return;
+              await api.lock.signOutEverywhere();
+              location.replace('/login');
+            },
+          },
+          'Sign out everywhere',
+        ),
+      ),
+    );
+  }
 
   function paintBackup(status) {
     mount(
@@ -306,6 +405,19 @@ export async function renderSettings() {
         },
         t('backupNow'),
       ),
+    ),
+
+    /* ---- the lock on the till ---- */
+    h(
+      '.card',
+      h('h2', '🔒 Passcode'),
+      h(
+        'p.small.muted',
+        'Cash Memer is served to your whole Wi-Fi so your phone can reach it, which means ' +
+          'anyone else on that network can reach it too. The passcode is what stops them. ' +
+          'Each device is asked once and stays signed in for 30 days.',
+      ),
+      lockHost,
     ),
 
     /* ---- google ---- */

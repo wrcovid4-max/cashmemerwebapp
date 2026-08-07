@@ -13,7 +13,10 @@
 import { mkdirSync, readdirSync, rmSync, writeFileSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 
-const BASE = process.env.BASE ?? 'http://localhost:4000';
+import { BASE, signIn, authedFetch } from './helpers.mjs';
+
+const cookie = await signIn();
+const call = authedFetch(cookie);
 let failures = 0;
 const ok = (label, pass) => {
   if (!pass) failures += 1;
@@ -21,7 +24,7 @@ const ok = (label, pass) => {
 };
 
 const json = async (method, path, body) => {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await call(path, {
     method,
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -34,7 +37,7 @@ const json = async (method, path, body) => {
 await json('POST', '/api/members', { name: 'Backup Test Customer', phone: '0300 0000000' });
 const before = await json('GET', '/api/members');
 
-const backup = await (await fetch(`${BASE}/api/backup/export`)).json();
+const backup = await (await call('/api/backup/export')).json();
 ok('export produces a Cash Memer backup', backup.format === 'cashmemer-backup');
 
 for (const m of before) await json('DELETE', `/api/members/${m.id}`);
@@ -83,7 +86,7 @@ ok('an unreachable folder fails rather than hanging forever', failed.ok === fals
 ok(`it says why (${String(failed.error).slice(0, 60)}…)`, /disconnected|permission|does not exist|full|Could not write/i.test(failed.error));
 
 // The real regression: is the app still serving anything at all?
-const alive = await fetch(`${BASE}/api/dashboard`).then((r) => r.status).catch(() => 0);
+const alive = await call('/api/dashboard').then((r) => r.status).catch(() => 0);
 ok(`the app is still responsive afterwards (dashboard -> ${alive})`, alive === 200);
 console.log(`      the failing backup took ${Math.round((Date.now() - started) / 1000)}s and did not block anything else`);
 

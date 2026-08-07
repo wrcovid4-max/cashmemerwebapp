@@ -90,20 +90,54 @@ typing barcodes by hand; it never warns you about anything.
 
 ---
 
+## The passcode
+
+Because the app is served to your whole Wi-Fi so the phone can reach it,
+**anyone else on that Wi-Fi can reach it too** — a customer, a neighbour, a
+guest. So the app is locked with a single passcode.
+
+- **The first time you open it, it asks you to set a passcode.** Pick one and
+  type it twice. That is the only account there is — there is no username, no
+  email, no sign-up.
+- After that, every device that opens the app is asked for it **once**, then
+  stays signed in for **30 days**. Your own computer answers once and is done.
+- **The phone scanner is behind the same passcode.** The QR code alone is not
+  the lock — the phone is asked for the passcode the first time it opens the
+  scanner page, and then it too stays signed in for a month. So a stranger who
+  photographs your QR code over your shoulder still cannot use it, and neither
+  can anyone who simply guesses the scanner address.
+- Wrong guesses are **slowed down** — after five, each further try has to wait,
+  and the wait grows — so nobody can sit on your Wi-Fi and machine-guess it.
+
+**In Settings → Passcode** you can change the passcode, see how many devices
+are currently signed in, **lock this device now** (asks again next time), or
+**sign out everywhere** (every device, including every phone, has to type the
+passcode again — use it if a phone is lost).
+
+If you forget the passcode there is no e-mail reset — this app has no idea who
+you are, on purpose. Delete `data/app.db`'s session and passcode by removing
+the `data/` folder and it will ask you to set a new one on the next start (you
+lose your shop data doing that, so it is a last resort — keep the passcode
+somewhere).
+
+---
+
 ## Pairing your phone as the scanner
 
 1. On the computer, open **New receipt**
 2. Press **📱 Phone scanner** in the top right
 3. Point your phone's camera at the QR code on screen and tap the link
-4. **Your phone will warn that the connection "is not private".** This is
+4. **The phone asks for the passcode the first time** — the same one you set on
+   the computer. It is asked once per phone, then stays signed in for a month.
+5. **Your phone will warn that the connection "is not private".** This is
    expected. It means the certificate was signed by your own computer rather
    than bought from a company, because a shop computer has no domain name to
    buy one for. Nothing is wrong.
    - **iPhone / iPad (Safari):** tap **Show Details**, then **visit this website**, then **Visit Website**
    - **Android (Chrome):** tap **Advanced**, then **Proceed to … (unsafe)**
    - You are asked once per phone, not once per sale.
-5. Allow the camera when the phone asks
-6. Point it at a barcode
+6. Allow the camera when the phone asks
+7. Point it at a barcode
 
 The barcode appears in the receipt on your computer immediately.
 
@@ -282,6 +316,12 @@ I would rather tell you this than have you find out at the counter.
   text back out of the generated PDF, confirming page 1 does not carry the
   customer's phone, email or address, the page-2 note or the issuer account,
   and that page 2 carries all of it — `node test/pdf-pages.mjs`
+- **The passcode lock, from a stranger's point of view** — that someone on your
+  Wi-Fi with no passcode is turned away from the app, the receipts, the
+  settings, the pairing endpoint, **the phone scanner page and its socket**, and
+  the login screen and its stylesheet still load so you can sign in; that once
+  signed in you get through all of it; and that repeated wrong guesses get
+  slowed down without locking you out for good — `node test/lock.mjs`
 - The tax setting, both ways, including that flipping it leaves an existing
   receipt's total untouched
 - Urdu right-to-left, and the light theme
@@ -377,7 +417,7 @@ has no packages that need a compiler, so that is nearly always the cause.
 ## What is in the project
 
 ```
-server/       the server: database, API, PDF, pairing hub, backups
+server/       the server: database, API, PDF, pairing hub, backups, the passcode lock
 public/       everything the browser loads — no build step, no bundler
 shared/       money and totals code used by BOTH the server and the browser,
               so a total cannot be right on screen and wrong on paper

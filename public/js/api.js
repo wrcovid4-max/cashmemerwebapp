@@ -24,6 +24,13 @@ async function request(method, path, body) {
   const isJson = (response.headers.get('content-type') ?? '').includes('application/json');
   const payload = isJson ? await response.json().catch(() => null) : null;
 
+  if (response.status === 401 && payload?.locked) {
+    // The session ran out, or the passcode was changed on another device.
+    // Nothing useful can be shown behind a locked door, so go to it.
+    location.replace(`/login?next=${encodeURIComponent(location.pathname + location.hash)}`);
+    throw new Error('Locked.');
+  }
+
   if (!response.ok) {
     throw new Error(payload?.error ?? `The server said no (${response.status}).`);
   }
@@ -113,6 +120,14 @@ export const api = {
   auth: {
     status: () => request('GET', '/api/auth/status'),
     signOut: () => request('POST', '/api/auth/signout', {}),
+  },
+
+  /** The lock on the till — separate from the Google account above. */
+  lock: {
+    state: () => request('GET', '/api/auth/state'),
+    lockNow: () => request('POST', '/api/auth/lock', {}),
+    change: (current, passcode) => request('POST', '/api/auth/passcode', { current, passcode }),
+    signOutEverywhere: () => request('POST', '/api/auth/sign-out-everywhere', {}),
   },
 };
 

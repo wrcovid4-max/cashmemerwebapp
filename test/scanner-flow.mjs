@@ -8,13 +8,20 @@ import { chromium } from 'playwright';
 // CHROME_PATH pins a specific browser; without it Playwright uses its own.
 const LAUNCH = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {};
 import WebSocket from 'ws';
+import { signIn, playwrightCookie, authedFetch } from './helpers.mjs';
 
 const BASE = 'http://localhost:4000';
 const SHOT = process.env.SHOT_DIR ?? '/tmp';
 const ok = (label, pass) => console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}`);
 
+// Everything is behind the passcode now, including the phone's socket.
+const cookie = await signIn();
+const call = authedFetch(cookie);
+
 const browser = await chromium.launch(LAUNCH);
-const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
+await context.addCookies(playwrightCookie(cookie));
+const page = await context.newPage();
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 
 // Start from an empty counter, so this can be run twice in a row and mean the
@@ -22,10 +29,10 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 // the previous run's items into this one, and the product the run creates from
 // an "unknown" barcode would stop that barcode being unknown a second time.
 const UNKNOWN_BARCODE = '999000111222';
-await fetch(`${BASE}/api/draft`, { method: 'DELETE' });
-const known = await fetch(`${BASE}/api/products/barcode/${UNKNOWN_BARCODE}`).then((r) => r.json());
+await call('/api/draft', { method: 'DELETE' });
+const known = await call(`/api/products/barcode/${UNKNOWN_BARCODE}`).then((r) => r.json());
 if (known.found) {
-  await fetch(`${BASE}/api/products/${known.product.id}`, { method: 'DELETE' });
+  await call(`/api/products/${known.product.id}`, { method: 'DELETE' });
 }
 
 await page.goto(`${BASE}/#/new`, { waitUntil: 'networkidle' });
@@ -39,7 +46,7 @@ ok('pairing dialog shows a QR and a code', Boolean(code));
 await page.screenshot({ path: `${SHOT}/shot-pairing.png` });
 
 // 2. the phone joins
-const phone = new WebSocket(`ws://localhost:4000/ws?role=phone&code=${code}`);
+const phone = new WebSocket(`ws://localhost:4000/ws?role=phone&code=${code}`, { headers: { Cookie: cookie } });
 await new Promise((r) => phone.on('open', r));
 const phoneSays = [];
 phone.on('message', (m) => phoneSays.push(JSON.parse(m.toString())));
@@ -86,7 +93,7 @@ ok(`grand total updated (${totalText})`, totalText.includes('370'));
 // 7. drop the phone, scan while away, come back -> nothing is lost
 phone.close();
 await page.waitForTimeout(400);
-const phone2 = new WebSocket(`ws://localhost:4000/ws?role=phone&code=${code}`);
+const phone2 = new WebSocket(`ws://localhost:4000/ws?role=phone&code=${code}`, { headers: { Cookie: cookie } });
 await new Promise((r) => phone2.on('open', r));
 phone2.send(JSON.stringify({ type: 'scan', barcode: '8964000202019' }));
 await page.waitForTimeout(800);
