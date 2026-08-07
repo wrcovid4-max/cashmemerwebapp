@@ -63,26 +63,24 @@ purpose, click that window and press **Ctrl+C**.
 
 ---
 
-## Or: open it from a link, with no terminal
+## Don't want to type `npm start`? Two ways to skip it
 
-If typing `npm start` is not what you want, Cash Memer can instead live on the
-internet as a real website — you open a link like
+**On a Mac, for free — a double-click icon.** The app still runs on your own
+Mac, your data never leaves it, but you open it by double-clicking an icon
+instead of typing anything. It opens on that Mac and on phones on the same
+Wi-Fi — not from anywhere in the world. Step-by-step, with the exact clicks, in
+**[RUN-ON-MAC.md](RUN-ON-MAC.md)**. (There is a `start-mac.command` icon in the
+project for exactly this.)
+
+**From anywhere, like a website — put it on the internet.** You open a link like
 `https://cashmemer.onrender.com`, type your passcode once, and use it from any
-phone or computer, anywhere. No terminal, ever.
+phone or computer, anywhere. The trade-off is real: your receipts and customers'
+phone numbers then live on a **rented computer**, and keeping that data safe
+costs about **a few dollars a month**. It is all set up by clicking through a
+website — the guide is in **[DEPLOY.md](DEPLOY.md)**, and `render.yaml` is what
+makes it a few clicks.
 
-That is a genuine trade-off, not a free upgrade:
-
-- Your receipts and customers' phone numbers then live on a **rented computer**,
-  not only on yours.
-- Keeping that data safe across restarts needs a permanent disk, which costs
-  about **a few dollars a month**.
-
-The whole thing is set up by clicking through a website — the step-by-step guide
-with the exact buttons is in **[DEPLOY.md](DEPLOY.md)**. The `render.yaml` file
-in this project is what makes it a few clicks instead of a chore.
-
-Everything below this line is about running it on **your own computer**, which
-stays free and keeps your data in the shop.
+Everything below this line is about running it on **your own computer**.
 
 ---
 
