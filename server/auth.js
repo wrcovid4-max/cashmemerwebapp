@@ -16,14 +16,19 @@
  *   - Wrong guesses are slowed down, so nobody can sit on your Wi-Fi and try
  *     four-digit codes all afternoon.
  *
- * What this does NOT protect against, stated plainly: the app is served over
- * plain http on your LAN, so somebody already on your Wi-Fi and actively
- * capturing traffic could read the session cookie in transit. Locking the app
- * stops the casual case — a stranger who opens the address and looks. For the
- * rest, keep the Wi-Fi password to yourself.
+ * What this does NOT protect against, stated plainly: on your own computer the
+ * app is served over plain http on your LAN, so somebody already on your Wi-Fi
+ * and actively capturing traffic could read the session cookie in transit.
+ * Locking the app stops the casual case — a stranger who opens the address and
+ * looks. For the rest, keep the Wi-Fi password to yourself. When the app is
+ * hosted on the internet instead, the connection is real https and the cookie
+ * is marked Secure, so it is not exposed that way — there the passcode is the
+ * whole lock, which is why on the internet one is required from the first
+ * request rather than merely offered.
  */
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { db, getSetting, setSetting, nowIso } from './db.js';
+import { env } from './env.js';
 
 /* Cost parameters. High enough to make guessing slow, low enough that signing
    in at the counter feels instant. */
@@ -176,19 +181,25 @@ export function readCookie(req, name) {
   return null;
 }
 
+/**
+ * Secure only when hosted. On the internet the connection is real https, so the
+ * cookie is marked Secure and never travels in clear. On your own computer the
+ * app is plain http on the LAN, where a Secure cookie would simply never be
+ * sent back and would lock you out — so there it is deliberately not Secure.
+ */
+const SECURE = env.hosted ? '; Secure' : '';
+
 export function setSessionCookie(res, token, expires) {
-  // Deliberately NOT Secure: the app is served over plain http on your LAN,
-  // and a Secure cookie would simply never be sent, locking you out.
   res.setHeader(
     'Set-Cookie',
-    `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Expires=${new Date(expires).toUTCString()}`,
+    `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax${SECURE}; Expires=${new Date(expires).toUTCString()}`,
   );
 }
 
 export function clearSessionCookie(res) {
   res.setHeader(
     'Set-Cookie',
-    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax${SECURE}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
   );
 }
 

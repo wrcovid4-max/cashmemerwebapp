@@ -1,0 +1,57 @@
+# Cash Memer on the internet, in one click.
+#
+# This file tells Render.com how to run the app so you never touch a terminal.
+# You point Render at this repository, it reads this file, you press a couple of
+# buttons, and a few minutes later you have a real https link that opens the app
+# from any phone or computer.
+#
+# The short version of the steps (the long version is in DEPLOY.md):
+#   1. Make a free account at https://render.com and connect your GitHub.
+#   2. New  ->  Blueprint  ->  pick this repository.
+#   3. Render shows one service. Type a passcode into SETUP_PASSCODE.
+#   4. Press Apply. When it says "Live", open the link at the top.
+#
+# Why it is not free: your receipts and customers' phone numbers have to sit on
+# a permanent disk so a restart never wipes them, and a permanent disk needs a
+# paid instance — a few dollars a month. That is the cost of the data being safe.
+
+services:
+  - type: web
+    name: cashmemer
+    runtime: node
+    plan: starter # a paid instance — required so the disk below can exist
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /login
+    autoDeploy: true
+
+    # The permanent disk. Your whole shop lives here and survives restarts,
+    # redeploys and code changes. DATA_DIR below points the app at it.
+    disk:
+      name: cashmemer-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      # Turns on hosted mode: one http server, https handled by Render, the
+      # phone QR pointed at the public address, the login cookie marked Secure.
+      - key: HOSTED
+        value: "1"
+
+      # Keep the database on the permanent disk above, not in the code folder
+      # (which Render wipes on every deploy).
+      - key: DATA_DIR
+        value: /var/data
+
+      # The lock, set before the site is ever reachable. Type your own passcode
+      # here in the Render dashboard — it is never written into the repository.
+      # You can change it later inside the app; that change is what sticks.
+      - key: SETUP_PASSCODE
+        sync: false
+
+      # Optional keys — leave blank and those features simply stay off, exactly
+      # like on your own computer. Fill any in later without touching code.
+      - key: EXCHANGE_RATE_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

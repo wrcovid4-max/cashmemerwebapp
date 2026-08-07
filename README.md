@@ -63,6 +63,29 @@ purpose, click that window and press **Ctrl+C**.
 
 ---
 
+## Or: open it from a link, with no terminal
+
+If typing `npm start` is not what you want, Cash Memer can instead live on the
+internet as a real website — you open a link like
+`https://cashmemer.onrender.com`, type your passcode once, and use it from any
+phone or computer, anywhere. No terminal, ever.
+
+That is a genuine trade-off, not a free upgrade:
+
+- Your receipts and customers' phone numbers then live on a **rented computer**,
+  not only on yours.
+- Keeping that data safe across restarts needs a permanent disk, which costs
+  about **a few dollars a month**.
+
+The whole thing is set up by clicking through a website — the step-by-step guide
+with the exact buttons is in **[DEPLOY.md](DEPLOY.md)**. The `render.yaml` file
+in this project is what makes it a few clicks instead of a chore.
+
+Everything below this line is about running it on **your own computer**, which
+stays free and keeps your data in the shop.
+
+---
+
 ## The two addresses
 
 When it starts, it prints something like this:

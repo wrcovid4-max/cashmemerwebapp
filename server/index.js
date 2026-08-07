@@ -17,26 +17,41 @@ import { join } from 'node:path';
 import express from 'express';
 
 import { env } from './env.js';
-import { PUBLIC_DIR, ROOT, ensureDirs } from './paths.js';
+import { PUBLIC_DIR, ROOT, DATA_DIR, ensureDirs } from './paths.js';
 import { db, seedIfEmpty } from './db.js';
 import { primaryLanAddress, lanAddresses } from './net.js';
 import { ensureCertificate } from './certs.js';
 import { attachScanHub } from './scanhub.js';
 import { createApi } from './api.js';
 import { startBackupSchedule } from './backup.js';
-import { requireSignIn, hasPasscode } from './auth.js';
+import { requireSignIn, hasPasscode, setPasscode } from './auth.js';
 
 ensureDirs();
 seedIfEmpty();
 
-const lanIp = primaryLanAddress();
+// On the internet, lock the door before anyone can knock: if a passcode was
+// supplied in the environment and none is set yet, set it now, at boot.
+if (env.initialPasscode && !hasPasscode()) {
+  try {
+    setPasscode(env.initialPasscode);
+    console.log('  Passcode set from SETUP_PASSCODE. Change it in Settings once you are in.');
+  } catch (err) {
+    console.warn(`  SETUP_PASSCODE was ignored — ${err.message}`);
+  }
+}
+
+const lanIp = env.hosted ? null : primaryLanAddress();
 
 const urls = {
+  hosted: env.hosted,
+  publicUrl: env.publicUrl,
   localHttp: `http://localhost:${env.port}`,
   lanHttp: lanIp ? `http://${lanIp}:${env.port}` : null,
   lanHttps: lanIp ? `https://${lanIp}:${env.httpsPort}` : null,
   localHttps: `https://localhost:${env.httpsPort}`,
-  // Where the QR code sends the phone. https, because of the camera.
+  // Where the QR code sends the phone. On your own computer, https because of
+  // the camera. When hosted, the phone base is worked out from the real request
+  // in the pairing handler, so it is always the address the phone actually used.
   phoneBase: lanIp ? `https://${lanIp}:${env.httpsPort}` : `https://localhost:${env.httpsPort}`,
   lanIp,
   port: env.port,
@@ -48,6 +63,11 @@ const urls = {
  * ------------------------------------------------------------------ */
 
 const app = express();
+
+// Hosted, the app sits behind the host's https proxy. Trusting one proxy hop
+// lets Express see the real visitor's address (for slowing down passcode
+// guessing) and know the original request was https.
+if (env.hosted) app.set('trust proxy', 1);
 
 // Signatures arrive as data URLs and a bulk restore can be a large file.
 app.use(express.json({ limit: '25mb' }));
@@ -91,15 +111,20 @@ app.use((req, res) => {
 const httpServer = createHttpServer(app);
 const servers = [httpServer];
 
+// Hosted, the host terminates https itself and hands the app plain http on one
+// port — so the second, self-signed server (which exists only for the phone
+// camera on a Wi-Fi with no real certificate) is neither needed nor wanted.
 let httpsServer = null;
 let certNote = '';
-try {
-  const { key, cert, regenerated } = ensureCertificate([lanIp, 'localhost'].filter(Boolean));
-  httpsServer = createHttpsServer({ key, cert }, app);
-  servers.push(httpsServer);
-  certNote = regenerated ? 'a new certificate was just created' : 'using the saved certificate';
-} catch (err) {
-  certNote = `could not be started — ${err.message}`;
+if (!env.hosted) {
+  try {
+    const { key, cert, regenerated } = ensureCertificate([lanIp, 'localhost'].filter(Boolean));
+    httpsServer = createHttpsServer({ key, cert }, app);
+    servers.push(httpsServer);
+    certNote = regenerated ? 'a new certificate was just created' : 'using the saved certificate';
+  } catch (err) {
+    certNote = `could not be started — ${err.message}`;
+  }
 }
 
 attachScanHub(servers, (barcode) =>
@@ -114,7 +139,26 @@ function pad(text, width) {
   return text + ' '.repeat(Math.max(0, width - [...text].length));
 }
 
+/** The short banner for when the app is hosted on the internet. Goes to logs. */
+function hostedBanner() {
+  console.log('');
+  console.log('  CASH MEMER — running on the internet');
+  console.log(`    listening on port ${env.port} (the host puts https in front)`);
+  if (env.publicUrl) console.log(`    public address: ${env.publicUrl}`);
+  console.log(`    data folder:    ${DATA_DIR}`);
+  console.log(`    passcode:       ${hasPasscode() ? 'set' : 'NOT set — the first visitor will choose it'}`);
+  const keys = [
+    ['Live rates', Boolean(env.exchangeRateApiKey)],
+    ['Weekly AI sentence', Boolean(env.geminiApiKey)],
+    ['Google sign-in', Boolean(env.googleClientId && env.googleClientSecret)],
+  ];
+  console.log(`    features on:    ${keys.filter(([, on]) => on).map(([n]) => n).join(', ') || 'none of the optional ones'}`);
+  console.log('');
+}
+
 function banner() {
+  if (env.hosted) return hostedBanner();
+
   const W = 68;
   const line = (text = '') => console.log(`  │ ${pad(text, W)} │`);
   const bar = (l, r) => console.log(`  ${l}${'─'.repeat(W + 2)}${r}`);
@@ -211,7 +255,7 @@ httpServer.listen(env.port, '0.0.0.0', () => {
 
   startBackupSchedule();
 
-  const others = lanAddresses().slice(1);
+  const others = env.hosted ? [] : lanAddresses().slice(1);
   if (others.length > 0) {
     console.log(
       `  (This computer also answers on ${others.map((a) => a.address).join(', ')} — ` +

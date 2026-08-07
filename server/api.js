@@ -690,12 +690,27 @@ export function createApi({ urls }) {
     '/pair',
     guard(async (req, res) => {
       const pairing = createPairing();
-      // The phone must be sent to the https address: a phone browser will not
-      // open its camera on a plain http LAN address.
-      const base = urls.phoneBase;
+
+      // Where to send the phone. Hosted, it is the public https address the
+      // request actually came in on (read from the proxy headers, falling back
+      // to the configured PUBLIC_URL) — so the QR always points at the real
+      // site. On your own computer it is the Wi-Fi https address, because a
+      // phone browser will not open its camera on a plain http LAN address.
+      let base;
+      let insecureUrl;
+      if (urls.hosted) {
+        const proto = req.headers['x-forwarded-proto']?.split(',')[0].trim() || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host']?.split(',')[0].trim() || req.headers.host;
+        base = host ? `${proto}://${host}` : urls.publicUrl;
+        insecureUrl = `${base}/scan?code=${pairing.code}`; // one address only, already https
+      } else {
+        base = urls.phoneBase;
+        insecureUrl = `${urls.lanHttp}/scan?code=${pairing.code}`;
+      }
+
       const url = `${base}/scan?code=${encodeURIComponent(pairing.code)}`;
       const qr = await QRCode.toDataURL(url, { margin: 1, scale: 6 });
-      res.json({ code: pairing.code, url, qr, insecureUrl: `${urls.lanHttp}/scan?code=${pairing.code}` });
+      res.json({ code: pairing.code, url, qr, insecureUrl });
     }),
   );
 
