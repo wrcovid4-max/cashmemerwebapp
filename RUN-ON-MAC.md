@@ -35,36 +35,51 @@ You only ever do this once.
    folder called **cashmemerwebapp**.
 4. Drag that folder somewhere you will find it again — your **Documents**, say.
 
-### 3. Allow the icon to run (once)
+### 3. Turn on "always ready" (once)
 
-Because you downloaded it, macOS is cautious the first time:
+This is the step that gives you the system you want — a link you click that just
+opens, with nothing else to do. It makes Cash Memer start by itself whenever
+your Mac turns on and stay running quietly in the background.
 
 1. Open the **cashmemerwebapp** folder.
-2. Find the file **`start-mac.command`**.
+2. Find the file **`install-mac-autostart.command`**.
 3. **Right-click it** (or Control-click), choose **Open**, and in the box that
-   appears choose **Open** again.
+   appears choose **Open** again. (macOS is cautious the first time only,
+   because you downloaded it.)
 
-That first time teaches your Mac to trust it. After that, a normal double-click
-is enough.
+A window opens, sets everything up, and closes on its own. When it is done:
 
----
-
-## Every day after — one double-click
-
-Double-click **`start-mac.command`**.
-
-- A small black window appears (that is the app running — **leave it open**).
-- A second later, your browser opens with Cash Memer.
+- Cash Memer is **already running** and your browser has opened it.
+- There is a **"Cash Memer" link on your Desktop** — drag it into your **Dock**.
 - The very first time, it asks you to **choose a passcode**. Pick one, write it
   down. Everyone — including your phone — types this to get in.
 
-That is it. Use the app in your browser like any website.
+You only do this once.
 
-**To stop it:** close the small black window, or click it and press
-**Ctrl+C**.
+---
 
-**Tip:** drag `start-mac.command` to your **Dock** so it is one click every
-morning. You can also rename it to just **Cash Memer** if you like.
+## Every day after — just click your link
+
+Click the **Cash Memer** link (on your Dock or Desktop). It opens. That is the
+whole thing — nothing to start, no window to keep open.
+
+Your two links, the ones the app is always answering on:
+
+- **On this Mac:** `http://localhost:4000`
+- **On your phone** (same Wi-Fi): `http://<your-Mac-IP>:4000` — the setup window
+  showed you the exact number, and the phone scanner's QR code uses it for you.
+
+You can bookmark either one in Safari and it will just work, because Cash Memer
+is always running in the background.
+
+**To turn the background app off** (if you ever want to stop it running on its
+own): double-click **`uninstall-mac-autostart.command`** in the same folder.
+Your receipts and settings are left untouched.
+
+**Prefer to start it by hand instead of always-on?** There is also
+**`start-mac.command`** — double-click it to run the app in a window you keep
+open, and close that window to stop it. Use whichever you like; they are two
+ways to the same app.
 
 ---
 
@@ -89,8 +104,10 @@ signs its own certificate. That is expected on a home network — tap **Advanced
   double-click the icon again.
 - **Nothing opens / it says it cannot be opened** — you skipped step 3.
   Right-click the icon → **Open** → **Open**.
-- **The browser says it cannot reach the app** — the little black window was
-  closed. Double-click the icon again.
+- **Your link does not open the app** — the background app may not be running.
+  Double-click **`install-mac-autostart.command`** again; it restarts it.
+- **The browser says it cannot reach the app (hand-start way)** — the little
+  black window from `start-mac.command` was closed. Double-click it again.
 - **The black window mentions Node 22.5** — your Node is too old. Install the
   latest LTS from <https://nodejs.org> (step 1) and try again.
 - **You forgot the passcode** — there is no email reset, on purpose. You would

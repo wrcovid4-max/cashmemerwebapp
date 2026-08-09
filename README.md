@@ -65,12 +65,14 @@ purpose, click that window and press **Ctrl+C**.
 
 ## Don't want to type `npm start`? Two ways to skip it
 
-**On a Mac, for free — a double-click icon.** The app still runs on your own
-Mac, your data never leaves it, but you open it by double-clicking an icon
-instead of typing anything. It opens on that Mac and on phones on the same
-Wi-Fi — not from anywhere in the world. Step-by-step, with the exact clicks, in
-**[RUN-ON-MAC.md](RUN-ON-MAC.md)**. (There is a `start-mac.command` icon in the
-project for exactly this.)
+**On a Mac, for free — click a link, nothing else.** Run
+`install-mac-autostart.command` once and the app starts by itself whenever the
+Mac turns on and stays running in the background, so a link on your Dock just
+opens it — no terminal, no window to keep open, nothing to start each day. It
+answers on one `localhost` link and one Wi-Fi-IP link (for the phone); it is not
+reachable from outside your Wi-Fi. Step-by-step, with the exact clicks, in
+**[RUN-ON-MAC.md](RUN-ON-MAC.md)**. (Prefer starting it by hand? `start-mac.command`
+runs it in a window instead.)
 
 **From anywhere, like a website — put it on the internet.** You open a link like
 `https://cashmemer.onrender.com`, type your passcode once, and use it from any
