@@ -10,7 +10,7 @@ import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { store, saveSettings, formatDateTime } from '../store.js';
 
-export async function renderSettings() {
+export async function renderSettings({ params } = {}) {
   const [auth, backup] = await Promise.all([api.auth.status(), api.backup.status()]);
   const s = store.settings;
 
@@ -245,11 +245,6 @@ export async function renderSettings() {
       '.card',
       h('h2', t('print')),
       toggle('autoPrint', 'Auto-print', 'Send the memo to the print dialog as soon as it is generated.'),
-      toggle(
-        'autoSend',
-        'Auto-send',
-        'Open your mail app (or messages) with the receipt details, ready to send. It never sends on its own.',
-      ),
       toggle('saveSignature', 'Remember my signature', 'Reuse the last signature on the next receipt.'),
       h(
         'p.small.muted',
@@ -423,21 +418,29 @@ export async function renderSettings() {
     /* ---- google ---- */
     h(
       '.card',
+      { id: 'googleCard' },
       h('h2', 'Google sign-in'),
       !auth.configured
         ? h(
             '.notice.warn',
             h(
               '.grow',
-              h('strong', 'Not set up — and not required.'),
+              h('strong', 'Sign-in is not set up yet.'),
               h(
                 'p.small',
-                'Sign-in only fills the issuer name and email printed on page 2, which you can ' +
-                  'also just type above. To enable it, put GOOGLE_CLIENT_ID and ' +
-                  'GOOGLE_CLIENT_SECRET in your .env file and restart.',
+                'Google sign-in fills your issuer name and email onto page 2 automatically, so you ' +
+                  'do not type them on every receipt. To turn it on, put GOOGLE_CLIENT_ID and ' +
+                  'GOOGLE_CLIENT_SECRET in your .env file and restart Cash Memer.',
               ),
-              h('p.small.muted', `Get them at ${auth.where}`),
-              h('p.small.muted', `Authorised redirect URI: ${auth.redirectUri}`),
+              h('p.small', 'Steps to get those two keys:'),
+              h(
+                'ol.small',
+                { style: { margin: '0', paddingInlineStart: 'var(--s5)' } },
+                h('li', h('a', { href: auth.where, target: '_blank', rel: 'noreferrer' }, auth.where)),
+                h('li', 'Create an OAuth client ID (type: Web application).'),
+                h('li', h('span', 'Add this exact Authorised redirect URI: '), h('span.mono', auth.redirectUri)),
+                h('li', 'Copy the client ID and secret into your .env file, then restart.'),
+              ),
             ),
           )
         : auth.account
@@ -475,6 +478,21 @@ export async function renderSettings() {
   );
 
   paintBackup(backup);
+  paintLock();
+
+  // Arriving from the sidebar's "Sign in with Google" lands on the Google card
+  // rather than the top of a long Settings page.
+  if (params?.get('focus') === 'google') {
+    requestAnimationFrame(() => {
+      const card = root.querySelector('#googleCard');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('flash');
+        setTimeout(() => card.classList.remove('flash'), 1600);
+      }
+    });
+  }
+
   return root;
 }
 

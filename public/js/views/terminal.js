@@ -18,16 +18,6 @@ import { store } from '../store.js';
 import { scanner } from '../scanner.js';
 import { openPairingDialog } from '../pairing.js';
 
-/** A rolling event log, kept in memory for as long as the app is open. */
-const log = [];
-const MAX_LOG = 200;
-
-function addLog(text, kind = 'info') {
-  log.unshift({ at: new Date(), text, kind });
-  if (log.length > MAX_LOG) log.length = MAX_LOG;
-  window.dispatchEvent(new CustomEvent('cashmemer:log'));
-}
-
 /* ------------------------------------------------------------------ *
  * a serial printer, when the browser has Web Serial
  * ------------------------------------------------------------------ */
@@ -39,7 +29,6 @@ const serial = {
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 9600 });
     this.port = port;
-    addLog('Serial device connected.', 'ok');
     return port;
   },
   async disconnect() {
@@ -49,7 +38,6 @@ const serial = {
       /* already gone */
     }
     this.port = null;
-    addLog('Serial device disconnected.');
   },
   async write(bytes) {
     if (!this.port) throw new Error('Nothing is connected.');
@@ -75,54 +63,7 @@ function parseBytes(input) {
 
 export async function renderTerminal() {
   const root = h('div');
-  const logHost = h('.card');
   const serialHost = h('.card');
-
-  const paintLog = () => {
-    mount(
-      logHost,
-      h(
-        '.page-head',
-        { style: { marginBottom: 'var(--s3)' } },
-        h('h2', 'Event log'),
-        h(
-          '.actions',
-          h(
-            'button.btn.small.ghost',
-            {
-              onclick: () => {
-                log.length = 0;
-                paintLog();
-              },
-            },
-            t('clear'),
-          ),
-        ),
-      ),
-      log.length === 0
-        ? h('p.small.muted', 'Nothing yet.')
-        : h(
-            'div',
-            { style: { display: 'grid', gap: '2px', maxHeight: '280px', overflow: 'auto' } },
-            log.map((entry) =>
-              h(
-                '.small',
-                { style: { display: 'flex', gap: 'var(--s3)' } },
-                h('span.muted.mono', entry.at.toLocaleTimeString()),
-                h('span', { style: entry.kind === 'ok' ? { color: 'var(--accent-text)' } : {} }, entry.text),
-              ),
-            ),
-          ),
-    );
-  };
-
-  window.addEventListener('cashmemer:log', paintLog);
-  new MutationObserver((_, obs) => {
-    if (!document.body.contains(root)) {
-      window.removeEventListener('cashmemer:log', paintLog);
-      obs.disconnect();
-    }
-  }).observe(document.body, { childList: true, subtree: true });
 
   const paintSerial = () => {
     const supported = 'serial' in navigator;
@@ -193,11 +134,10 @@ export async function renderTerminal() {
                   onclick: async () => {
                     try {
                       await serial.write(parseBytes(bytesInput.value));
-                      addLog(`Sent: ${bytesInput.value}`, 'ok');
+                      toast('Sent.');
                       bytesInput.value = '';
                     } catch (err) {
                       toast(err.message, 'error');
-                      addLog(`Send failed: ${err.message}`, 'error');
                     }
                   },
                 },
@@ -221,12 +161,12 @@ export async function renderTerminal() {
     ];
     return h(
       'div',
-      { style: { display: 'grid', gap: 'var(--s2)' } },
+      { style: { display: 'grid', gap: 'var(--s3)' } },
       checks.map(([label, ok]) =>
         h(
           'div',
           { style: { display: 'flex', gap: 'var(--s3)', alignItems: 'center' } },
-          h(`span.badge${ok ? '.ok' : ''}`, ok ? '✓' : '·'),
+          h(`span.status-dot${ok ? '.ok' : '.off'}`, ok ? '✓' : '✕'),
           h('span', label),
         ),
       ),
@@ -264,7 +204,6 @@ export async function renderTerminal() {
               {
                 onclick: () => {
                   scanner.unpair();
-                  addLog('Phone unpaired.');
                   toast('Unpaired.');
                 },
               },
@@ -277,21 +216,20 @@ export async function renderTerminal() {
     serialHost,
 
     h('.card', h('h2', 'Diagnostics'), diagnostics()),
-
-    logHost,
   );
 
   paintSerial();
-  paintLog();
 
-  const onScan = (e) => addLog(`Scan: ${e.detail.barcode}${e.detail.product ? ` → ${e.detail.product.name}` : ' (not in inventory)'}`, 'ok');
-  const onStatus = (e) => addLog(`Scanner: ${e.detail}`);
-  scanner.addEventListener('scan', onScan);
-  scanner.addEventListener('status', onStatus);
+  // The diagnostics repaint themselves as the phone connects or drops, so the
+  // "connected right now" line stays honest without a refresh.
+  const refreshDiagnostics = () => {
+    const card = root.querySelector('.card:last-child');
+    if (card) mount(card, h('h2', 'Diagnostics'), diagnostics());
+  };
+  scanner.addEventListener('status', refreshDiagnostics);
   new MutationObserver((_, obs) => {
     if (!document.body.contains(root)) {
-      scanner.removeEventListener('scan', onScan);
-      scanner.removeEventListener('status', onStatus);
+      scanner.removeEventListener('status', refreshDiagnostics);
       obs.disconnect();
     }
   }).observe(document.body, { childList: true, subtree: true });

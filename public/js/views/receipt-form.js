@@ -86,6 +86,9 @@ export async function renderReceiptForm({ params, go }) {
   } else if (draft?.payload && Object.keys(draft.payload).length > 0) {
     receipt = { ...blankReceipt(), ...draft.payload };
     restoredDraft = true;
+    // A restored draft carries the time it was first opened, which may be hours
+    // or a day ago. The sale is happening now, so the clock starts fresh.
+    receipt.created_at = new Date().toISOString();
   } else {
     receipt = blankReceipt();
   }
@@ -105,11 +108,23 @@ export async function renderReceiptForm({ params, go }) {
 
   const root = h('.receipt-layout');
   const formCol = h('div');
+  // The live preview shows BOTH pages of the memo, because they are not the
+  // same page: page 1 is the customer's (no phone, address, note 2 or issuer),
+  // page 2 is yours and carries everything.
   const previewCol = h(
     '.preview-rail',
     h('.caption', t('livePreview')),
-    h('.paper', { id: 'paperPreview' }),
+    h(
+      '.paper-stack',
+      h('.paper-wrap', h('.paper-label', t('page1Customer')), h('.paper', { id: 'paperPreview1' })),
+      h('.paper-wrap', h('.paper-label', t('page2Yours')), h('.paper', { id: 'paperPreview2' })),
+    ),
   );
+
+  // True once the shopkeeper has set the date by hand; until then a new memo is
+  // stamped with the current time when it is generated, so the time on it is
+  // always "now" and never frozen at the moment the form happened to open.
+  let dateTouched = false;
 
   const totals = () =>
     computeTotals({
@@ -120,15 +135,25 @@ export async function renderReceiptForm({ params, go }) {
       taxBase: receipt.tax_base,
     });
 
-  /** One place that repaints the preview and the totals box. */
-  function repaint() {
-    const T = totals();
-    mount(
-      previewCol.querySelector('.paper'),
-      h('.p-title', 'RECEIPT'),
+  /** The customer lines a given page carries. Page 1 is handed across the
+   *  counter, so it never shows the phone number or home address. */
+  function customerLines(page) {
+    const lines = [];
+    if (receipt.customer_name) lines.push(h('.p-sub', receipt.customer_name));
+    if (receipt.customer_email) lines.push(h('.p-sub', receipt.customer_email));
+    if (page === 2 && receipt.customer_phone) lines.push(h('.p-sub', receipt.customer_phone));
+    if (page === 2 && receipt.customer_address) lines.push(h('.p-sub', receipt.customer_address));
+    return lines;
+  }
+
+  /** The contents of one preview page (1 = customer, 2 = your copy). */
+  function paperContent(page, T) {
+    const cur = receipt.currency;
+    return [
+      h('.p-title', receipt.place || 'RECEIPT'),
       h('.p-sub', new Date(receipt.created_at).toLocaleString()),
       h('.p-sub', `${receipt.category} · ${receipt.payment_method}`),
-      receipt.place ? h('.p-sub', receipt.place) : null,
+      ...customerLines(page),
       h('hr'),
       receipt.items.length === 0
         ? h('.p-sub', t('noItems'))
@@ -136,34 +161,48 @@ export async function renderReceiptForm({ params, go }) {
             h(
               '.p-item',
               h('div', item.name || '—', h('small', ` ×${item.qty}`)),
-              h('div', money(lineTotal(item), receipt.currency)),
+              h('div', money(lineTotal(item), cur)),
             ),
           ),
       h('hr'),
-      h('.p-row', h('span', t('subtotal')), h('span', money(T.subtotal, receipt.currency))),
-      T.discount ? h('.p-row', h('span', t('discount')), h('span', `- ${money(T.discount, receipt.currency)}`)) : null,
-      T.tax ? h('.p-row', h('span', `${t('tax')} ${T.taxPercent}%`), h('span', `+ ${money(T.tax, receipt.currency)}`)) : null,
-      h('.p-row.total', h('span', t('grandTotal')), h('span', money(T.grandTotal, receipt.currency))),
-      T.cashGiven
-        ? [
-            h('.p-row', h('span', t('cashGiven')), h('span', money(T.cashGiven, receipt.currency))),
-            h('.p-row', h('span', t('change')), h('span', money(T.change, receipt.currency))),
-          ]
+      h('.p-row', h('span', t('subtotal')), h('span', money(T.subtotal, cur))),
+      T.discount ? h('.p-row', h('span', t('discount')), h('span', `- ${money(T.discount, cur)}`)) : null,
+      T.discount
+        ? h('.p-row', h('span', t('subtotalAfterDiscount')), h('span', money(T.subtotal - T.discount, cur)))
         : null,
+      T.tax ? h('.p-row', h('span', `${t('tax')} ${T.taxPercent}%`), h('span', `+ ${money(T.tax, cur)}`)) : null,
+      h('.p-row.total', h('span', t('grandTotal')), h('span', money(T.grandTotal, cur))),
+      T.cashGiven ? h('.p-row', h('span', t('cashGiven')), h('span', money(T.cashGiven, cur))) : null,
+      T.cashGiven ? h('.p-row', h('span', t('change')), h('span', money(T.change, cur))) : null,
       h('.p-foot', '* * *'),
       h('.p-foot', receipt.note1 || t('thankYou')),
-    );
+      page === 2 && receipt.note2 ? h('.p-foot', receipt.note2) : null,
+      page === 2 && (receipt.issuer_name || receipt.issuer_email)
+        ? h('.p-sub', { style: { marginTop: 'var(--s3)' } }, [receipt.issuer_name, receipt.issuer_email].filter(Boolean).join(' · '))
+        : null,
+    ];
+  }
+
+  /** One place that repaints both preview pages and the totals box. */
+  function repaint() {
+    const T = totals();
+    const cur = receipt.currency;
+    mount(previewCol.querySelector('#paperPreview1'), paperContent(1, T));
+    mount(previewCol.querySelector('#paperPreview2'), paperContent(2, T));
 
     const box = root.querySelector('.totals-box');
     if (box) {
       mount(
         box,
-        h('.row', h('span.muted', t('subtotal')), h('span', money(T.subtotal, receipt.currency))),
-        h('.row', h('span.muted', t('discount')), h('span', `- ${money(T.discount, receipt.currency)}`)),
-        h('.row', h('span.muted', `${t('tax')} (${T.taxPercent}%)`), h('span', `+ ${money(T.tax, receipt.currency)}`)),
-        h('.row.grand', h('span', t('grandTotal')), h('span', money(T.grandTotal, receipt.currency))),
-        h('.row', h('span.muted', t('cashGiven')), h('span', money(T.cashGiven, receipt.currency))),
-        h('.row', h('span.muted', t('change')), h('span', money(T.change, receipt.currency))),
+        h('.row', h('span.muted', t('subtotal')), h('span', money(T.subtotal, cur))),
+        T.discount ? h('.row', h('span.muted', t('discount')), h('span', `- ${money(T.discount, cur)}`)) : null,
+        T.discount
+          ? h('.row', h('span.muted', t('subtotalAfterDiscount')), h('span', money(T.subtotal - T.discount, cur)))
+          : null,
+        h('.row', h('span.muted', `${t('tax')} (${T.taxPercent}%)`), h('span', `+ ${money(T.tax, cur)}`)),
+        h('.row.grand', h('span', t('grandTotal')), h('span', money(T.grandTotal, cur))),
+        T.cashGiven ? h('.row', h('span.muted', t('cashGiven')), h('span', money(T.cashGiven, cur))) : null,
+        T.cashGiven ? h('.row', h('span.muted', t('change')), h('span', money(T.change, cur))) : null,
       );
     }
     saveDraft();
@@ -391,6 +430,10 @@ export async function renderReceiptForm({ params, go }) {
       return;
     }
 
+    // Stamp a brand-new memo with the moment it is actually issued, so its time
+    // is current — unless the shopkeeper deliberately set a date themselves.
+    if (!editId && !dateTouched) receipt.created_at = new Date().toISOString();
+
     try {
       const saved = editId
         ? await api.receipts.update(editId, receipt)
@@ -408,40 +451,9 @@ export async function renderReceiptForm({ params, go }) {
         await openPdf(api.receipts.pdfUrl(saved.id), 'print', `receipt-${saved.number}.pdf`);
       }
 
-      if (store.settings.autoSend) sendToCustomer(saved);
-
       go('receipts');
     } catch (err) {
       toast(err.message, 'error');
-    }
-  }
-
-  /**
-   * Opens the mail or messages app with the memo details filled in.
-   * Deliberately not silent — sending on the shopkeeper's behalf without them
-   * seeing it would be worse than one extra tap.
-   */
-  function sendToCustomer(saved) {
-    const T = computeTotals({
-      items: saved.items,
-      discount: saved.discount,
-      taxPercent: saved.tax_percent,
-      cashGiven: saved.cash_given,
-      taxBase: saved.tax_base,
-    });
-    const body =
-      `Receipt #${saved.number} from ${saved.place || 'our shop'}\n` +
-      `Total: ${money(T.grandTotal, saved.currency)}\n` +
-      `Date: ${new Date(saved.created_at).toLocaleString()}`;
-
-    if (saved.customer_email) {
-      location.href = `mailto:${encodeURIComponent(saved.customer_email)}?subject=${encodeURIComponent(
-        `Receipt #${saved.number}`,
-      )}&body=${encodeURIComponent(body)}`;
-    } else if (saved.customer_phone) {
-      location.href = `sms:${encodeURIComponent(saved.customer_phone)}?body=${encodeURIComponent(body)}`;
-    } else {
-      toast('Auto-send is on, but this customer has no email or phone.', 'warn');
     }
   }
 
@@ -555,6 +567,7 @@ export async function renderReceiptForm({ params, go }) {
           type: 'datetime-local',
           value: toLocalInput(receipt.created_at),
           onchange: (e) => {
+            dateTouched = true;
             receipt.created_at = e.target.value ? new Date(e.target.value).toISOString() : receipt.created_at;
             repaint();
           },
@@ -636,10 +649,10 @@ export async function renderReceiptForm({ params, go }) {
           h('label', t('taxPercent')),
           h('input', bind('tax_percent', { type: 'number', numeric: true })),
           h(
-            'span.small.muted',
+            'span.field-hint',
             receipt.tax_base === 'before-discount'
-              ? 'charged on the price before discount'
-              : 'charged after the discount',
+              ? t('taxOnBeforeDiscount')
+              : t('taxOnAfterDiscount'),
           ),
         ),
         h('.field', h('label', t('cashGiven')), h('input', bind('cash_given', { type: 'number', numeric: true }))),

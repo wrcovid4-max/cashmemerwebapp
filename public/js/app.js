@@ -181,7 +181,7 @@ function renderSidebar() {
               '⏻',
             ),
           )
-        : h('a.btn.ghost.small', { href: '#/settings' }, t('signIn')),
+        : h('a.btn.ghost.small', { href: '#/settings?focus=google' }, t('signIn')),
     ),
   );
 }

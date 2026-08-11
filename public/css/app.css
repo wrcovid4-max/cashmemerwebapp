@@ -757,6 +757,73 @@ textarea::placeholder {
   margin-top: var(--s4);
 }
 
+/* The preview shows both pages of the memo, one above the other. */
+.paper-stack {
+  display: grid;
+  gap: var(--s5);
+  width: 100%;
+}
+.paper-wrap {
+  display: grid;
+  gap: var(--s2);
+  justify-items: center;
+  width: 100%;
+}
+.paper-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* A one-line hint under a field (e.g. how tax is charged). Sits on its own
+   line, quiet, and never crowds the input above it. */
+.field-hint {
+  display: block;
+  margin-top: var(--s2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* A card briefly flashes when you are sent straight to it (e.g. the Google
+   card from the sidebar's Sign in button), so it is obvious where you landed. */
+@keyframes cardFlash {
+  from { box-shadow: 0 0 0 2px var(--accent); }
+  to { box-shadow: 0 0 0 2px transparent; }
+}
+.card.flash {
+  animation: cardFlash 1.6s ease-out;
+}
+
+/* Diagnostics: one circle per check, all the same size and shape, so a tick
+   and a cross read as a row rather than a jumble. */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--card-2, transparent);
+}
+.status-dot.ok {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink, #fff);
+}
+.status-dot.off {
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 45%, var(--line));
+  color: var(--danger, #c0392b);
+}
+
 .item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 90px 120px auto;
