@@ -18,6 +18,7 @@ import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
+import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -717,6 +718,36 @@ export function createApi({ urls }) {
   api.get(
     '/pair/:code/status',
     guard(async (req, res) => res.json(pairingStatus(str(req.params.code)))),
+  );
+
+  /* ---- location map (the Maps key stays on the server) ------------------- */
+
+  // A Static Maps PNG for one point, proxied so the key never reaches the
+  // browser. Missing key or unreachable Google -> 404, and the <img> simply
+  // shows nothing rather than the sale being blocked.
+  api.get(
+    '/map/static',
+    guard(async (req, res) => {
+      const image = await staticMapImage(req.query.lat, req.query.lng, {
+        width: Math.min(num(req.query.w, 320), 640),
+        height: Math.min(num(req.query.h, 160), 640),
+      });
+      if (!image) {
+        res.status(404).json({ error: 'No map available.' });
+        return;
+      }
+      res.setHeader('Content-Type', image.contentType);
+      res.send(image.buffer);
+    }),
+  );
+
+  // Turns the phone's GPS reading into a street address. Never throws.
+  api.get(
+    '/geocode/reverse',
+    guard(async (req, res) => {
+      const address = await reverseGeocode(req.query.lat, req.query.lng);
+      res.json({ address, ready: mapsReady() });
+    }),
   );
 
   /* ---- the in-progress sale ---------------------------------------------- */

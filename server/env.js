@@ -141,6 +141,7 @@ export const env = {
   httpsPort: Number(read('HTTPS_PORT', '4001')) || 4001,
   exchangeRateApiKey: readKey('EXCHANGE_RATE_API_KEY'),
   geminiApiKey: readKey('GEMINI_API_KEY'),
+  mapsApiKey: readKey('MAPS_API_KEY'),
   googleClientId: readKey('GOOGLE_CLIENT_ID'),
   googleClientSecret: readKey('GOOGLE_CLIENT_SECRET'),
 };
@@ -162,6 +163,12 @@ export function featureStatus() {
       key: 'GEMINI_API_KEY',
       where: 'https://aistudio.google.com/apikey',
       note: 'The one-sentence weekly insight. All six weekly numbers work without it.',
+    },
+    maps: {
+      ready: Boolean(env.mapsApiKey),
+      key: 'MAPS_API_KEY',
+      where: 'https://console.cloud.google.com/google/maps-apis/credentials',
+      note: 'Shows where each sale happened as a map on page 2, and fills the address from GPS.',
     },
     google: {
       ready: Boolean(env.googleClientId && env.googleClientSecret),
