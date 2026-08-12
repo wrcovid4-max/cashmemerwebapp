@@ -644,18 +644,18 @@ export async function renderReceiptForm({ params, go }) {
         '.grid-3',
         { style: { marginTop: 'var(--s5)' } },
         h('.field', h('label', t('discount')), h('input', bind('discount', { type: 'number', numeric: true }))),
-        h(
-          '.field',
-          h('label', t('taxPercent')),
-          h('input', bind('tax_percent', { type: 'number', numeric: true })),
-          h(
-            'span.field-hint',
-            receipt.tax_base === 'before-discount'
-              ? t('taxOnBeforeDiscount')
-              : t('taxOnAfterDiscount'),
-          ),
-        ),
+        h('.field', h('label', t('taxPercent')), h('input', bind('tax_percent', { type: 'number', numeric: true }))),
         h('.field', h('label', t('cashGiven')), h('input', bind('cash_given', { type: 'number', numeric: true }))),
+      ),
+      // The tax rule sits on its own full-width line, so it never squeezes the
+      // Tax box or throws the three columns above out of alignment.
+      h(
+        '.tax-note',
+        h('span.tax-note-ico', 'ⓘ'),
+        h(
+          'span',
+          receipt.tax_base === 'before-discount' ? t('taxOnBeforeDiscount') : t('taxOnAfterDiscount'),
+        ),
       ),
       h('.totals-box'),
     ),

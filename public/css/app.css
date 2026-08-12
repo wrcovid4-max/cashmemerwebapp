@@ -777,14 +777,36 @@ textarea::placeholder {
   text-transform: uppercase;
 }
 
-/* A one-line hint under a field (e.g. how tax is charged). Sits on its own
-   line, quiet, and never crowds the input above it. */
+/* A one-line hint under a field. Sits on its own line, quiet, and never crowds
+   the input above it. */
 .field-hint {
   display: block;
   margin-top: var(--s2);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* The tax-rule note: a quiet full-width chip below the discount/tax/cash row,
+   so those three inputs stay perfectly aligned and the note has room to sit on
+   one line instead of wrapping awkwardly inside the Tax box. */
+.tax-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card-2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tax-note-ico {
+  flex: none;
+  color: var(--accent-text);
+  font-weight: 700;
 }
 
 /* A card briefly flashes when you are sent straight to it (e.g. the Google
