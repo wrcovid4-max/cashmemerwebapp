@@ -48,6 +48,8 @@ export async function renderSettings({ params } = {}) {
 
   const backupHost = h('div');
   const lockHost = h('div');
+  // Status line for the "Back up & sync now" button in the Google card.
+  const gSyncStatus = h('span.backup-status');
 
   /** Repaints the passcode card, so the device count stays honest. */
   async function paintLock() {
@@ -460,6 +462,47 @@ export async function renderSettings({ params } = {}) {
               ),
             )
           : h('a.btn.primary', { href: '/api/auth/google' }, t('signIn')),
+
+      // Back up & sync, right here in the Google box, with a plain progress line.
+      h('hr', { style: { border: '0', borderTop: '1px solid var(--line)', margin: 'var(--s4) 0' } }),
+      h(
+        '.row-actions',
+        h(
+          'button.btn.small.primary',
+          {
+            onclick: async (e) => {
+              const btn = e.currentTarget;
+              btn.disabled = true;
+              gSyncStatus.textContent = 'Backing up…';
+              gSyncStatus.className = 'backup-status working';
+              try {
+                const result = await api.backup.run();
+                if (result.ok) {
+                  gSyncStatus.textContent = `✓ Backup done${result.pruned ? ` · ${result.pruned} old removed` : ''}`;
+                  gSyncStatus.className = 'backup-status ok';
+                  paintBackup(await api.backup.status());
+                } else {
+                  gSyncStatus.textContent = result.error;
+                  gSyncStatus.className = 'backup-status err';
+                }
+              } catch (err) {
+                gSyncStatus.textContent = err.message;
+                gSyncStatus.className = 'backup-status err';
+              } finally {
+                btn.disabled = false;
+              }
+            },
+          },
+          '⬆ Back up & sync now',
+        ),
+        gSyncStatus,
+      ),
+      h(
+        'p.small.muted',
+        { style: { marginTop: 'var(--s2)' } },
+        'Saves a snapshot of your whole shop to your backup folder. Point that folder at Google ' +
+          'Drive (in Automatic backup below) so the copy lands in Google.',
+      ),
     ),
 
     /* ---- where things are ---- */

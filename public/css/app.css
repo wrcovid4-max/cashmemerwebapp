@@ -787,6 +787,15 @@ textarea::placeholder {
   line-height: 1.4;
 }
 
+/* The "Back up & sync now" progress line, next to its button. */
+.backup-status {
+  font-size: 13px;
+  align-self: center;
+}
+.backup-status.working { color: var(--muted); }
+.backup-status.ok { color: var(--accent-text); font-weight: 700; }
+.backup-status.err { color: var(--danger, #c0392b); }
+
 /* The tax-rule note: a quiet full-width chip below the discount/tax/cash row,
    so those three inputs stay perfectly aligned and the note has room to sit on
    one line instead of wrapping awkwardly inside the Tax box. */

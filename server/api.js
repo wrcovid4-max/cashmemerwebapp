@@ -18,7 +18,7 @@ import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
-import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
+import { staticMapImage, reverseGeocode } from './maps.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -718,6 +718,29 @@ export function createApi({ urls }) {
   api.get(
     '/pair/:code/status',
     guard(async (req, res) => res.json(pairingStatus(str(req.params.code)))),
+  );
+
+  /* ---- location map (proxied so the Maps key never reaches a browser) ----- */
+
+  api.get(
+    '/map/static',
+    guard(async (req, res) => {
+      const img = await staticMapImage(req.query.lat, req.query.lng, {
+        width: num(req.query.w, 320),
+        height: num(req.query.h, 160),
+      });
+      if (!img) {
+        res.status(404).json({ error: 'No map available (no Maps key, or bad coordinates).' });
+        return;
+      }
+      res.setHeader('Content-Type', img.contentType);
+      res.send(img.buffer);
+    }),
+  );
+
+  api.get(
+    '/geocode/reverse',
+    guard(async (req, res) => res.json({ address: await reverseGeocode(req.query.lat, req.query.lng) })),
   );
 
   /* ---- location map (the Maps key stays on the server) ------------------- */
