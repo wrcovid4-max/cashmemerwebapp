@@ -172,18 +172,17 @@ export async function renderSettings({ params } = {}) {
     root,
     h('.page-head', h('h1', t('settings'))),
 
-    /* ---- what a clone will not give you ---- */
+    /* ---- keep a copy of your shop ---- */
     h(
       '.notice.warn',
       h('span', '⚠️'),
       h(
         '.grow',
-        h('strong', 'Your receipts are not in git.'),
+        h('strong', 'Keep a copy of your shop.'),
         h(
           'p.small',
-          'A fresh copy of this project from GitHub arrives empty: no receipts, no products, no ' +
-            'customers, no settings, and no API keys. The Export button below produces the one ' +
-            'file that carries all of it. Keep that file somewhere that is not this computer.',
+          'Your receipts and customers live on this device. Use Back up now and then, and keep ' +
+            'the copy somewhere safe, so nothing is lost if this device is.',
         ),
       ),
     ),
@@ -358,9 +357,8 @@ export async function renderSettings({ params } = {}) {
       h('h3', { style: { marginTop: 'var(--s6)' } }, t('automaticBackup')),
       h(
         'p.small.muted',
-        'Point this at a folder that syncs somewhere else — Google Drive, Dropbox, OneDrive, ' +
-          'iCloud — and a copy of your shop leaves this computer every day without you doing ' +
-          'anything.',
+        'Choose a folder that syncs online — Google Drive, Dropbox, OneDrive or iCloud — and a ' +
+          'copy of your shop is saved there every day, all on its own.',
       ),
       h(
         '.field',
@@ -368,19 +366,15 @@ export async function renderSettings({ params } = {}) {
         h('label', t('backupFolder')),
         h('input', {
           value: s.backupFolder ?? '',
-          placeholder: '/Users/you/Google Drive/CashMemer',
+          placeholder: 'Your Google Drive folder',
           onchange: async (e) => {
             await saveSettings({ backupFolder: e.target.value.trim() });
             toast('Saved.');
           },
         }),
-        h(
-          'p.small.muted',
-          'A full path on this computer. The browser cannot open a folder picker for the server, ' +
-            'so this is typed in — copy it from your file manager’s address bar.',
-        ),
+        h('p.small.muted', 'The folder on this device where daily copies are saved.'),
       ),
-      toggle('backupEnabled', 'Back up every day', 'Checked once a day while Cash Memer is running.'),
+      toggle('backupEnabled', 'Back up every day', 'Saves a copy once a day, automatically.'),
       h(
         'button.btn.small',
         {
@@ -410,9 +404,8 @@ export async function renderSettings({ params } = {}) {
       h('h2', '🔒 Passcode'),
       h(
         'p.small.muted',
-        'Cash Memer is served to your whole Wi-Fi so your phone can reach it, which means ' +
-          'anyone else on that network can reach it too. The passcode is what stops them. ' +
-          'Each device is asked once and stays signed in for 30 days.',
+        'Protect your shop with a passcode. Each device is asked once and stays signed in for ' +
+          '30 days.',
       ),
       lockHost,
     ),
@@ -424,24 +417,13 @@ export async function renderSettings({ params } = {}) {
       h('h2', 'Google sign-in'),
       !auth.configured
         ? h(
-            '.notice.warn',
+            '.notice',
             h(
               '.grow',
-              h('strong', 'Sign-in is not set up yet.'),
+              h('strong', 'Google sign-in isn’t connected yet.'),
               h(
                 'p.small',
-                'Google sign-in fills your issuer name and email onto page 2 automatically, so you ' +
-                  'do not type them on every receipt. To turn it on, put GOOGLE_CLIENT_ID and ' +
-                  'GOOGLE_CLIENT_SECRET in your .env file and restart Cash Memer.',
-              ),
-              h('p.small', 'Steps to get those two keys:'),
-              h(
-                'ol.small',
-                { style: { margin: '0', paddingInlineStart: 'var(--s5)' } },
-                h('li', h('a', { href: auth.where, target: '_blank', rel: 'noreferrer' }, auth.where)),
-                h('li', 'Create an OAuth client ID (type: Web application).'),
-                h('li', h('span', 'Add this exact Authorised redirect URI: '), h('span.mono', auth.redirectUri)),
-                h('li', 'Copy the client ID and secret into your .env file, then restart.'),
+                'Connect it to fill your name and email onto your copy of each receipt automatically.',
               ),
             ),
           )
@@ -463,7 +445,7 @@ export async function renderSettings({ params } = {}) {
             )
           : h('a.btn.primary', { href: '/api/auth/google' }, t('signIn')),
 
-      // Back up & sync, right here in the Google box, with a plain progress line.
+      // Two separate actions, each with its own plain progress line.
       h('hr', { style: { border: '0', borderTop: '1px solid var(--line)', margin: 'var(--s4) 0' } }),
       h(
         '.row-actions',
@@ -476,11 +458,39 @@ export async function renderSettings({ params } = {}) {
               gSyncStatus.textContent = 'Backing up…';
               gSyncStatus.className = 'backup-status working';
               try {
+                const res = await fetch('/api/backup/export');
+                if (!res.ok) throw new Error('Backup could not be created.');
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `cashmemer-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                gSyncStatus.textContent = '✓ Backup done';
+                gSyncStatus.className = 'backup-status ok';
+              } catch (err) {
+                gSyncStatus.textContent = err.message;
+                gSyncStatus.className = 'backup-status err';
+              } finally {
+                btn.disabled = false;
+              }
+            },
+          },
+          'Back up',
+        ),
+        h(
+          'button.btn.small',
+          {
+            onclick: async (e) => {
+              const btn = e.currentTarget;
+              btn.disabled = true;
+              gSyncStatus.textContent = 'Syncing…';
+              gSyncStatus.className = 'backup-status working';
+              try {
                 const result = await api.backup.run();
                 if (result.ok) {
-                  gSyncStatus.textContent = `✓ Backup done${result.pruned ? ` · ${result.pruned} old removed` : ''}`;
+                  gSyncStatus.textContent = '✓ Synced';
                   gSyncStatus.className = 'backup-status ok';
-                  paintBackup(await api.backup.status());
                 } else {
                   gSyncStatus.textContent = result.error;
                   gSyncStatus.className = 'backup-status err';
@@ -493,31 +503,17 @@ export async function renderSettings({ params } = {}) {
               }
             },
           },
-          '⬆ Back up & sync now',
+          'Sync',
         ),
         gSyncStatus,
       ),
       h(
         'p.small.muted',
         { style: { marginTop: 'var(--s2)' } },
-        'Saves a snapshot of your whole shop to your backup folder. Point that folder at Google ' +
-          'Drive (in Automatic backup below) so the copy lands in Google.',
+        'Back up saves a copy to this device. Sync sends a copy to your online folder.',
       ),
     ),
 
-    /* ---- where things are ---- */
-    h(
-      '.card',
-      h('h2', 'This installation'),
-      h(
-        'div',
-        { style: { display: 'grid', gap: 'var(--s2)' } },
-        info('On this computer', store.urls.localHttp),
-        info('On your phone', store.urls.lanHttps ?? 'no network found'),
-        info('Database file', 'data/cashmemer.db'),
-        info('Keys file', '.env  (never in git)'),
-      ),
-    ),
   );
 
   paintBackup(backup);
@@ -537,13 +533,4 @@ export async function renderSettings({ params } = {}) {
   }
 
   return root;
-}
-
-function info(label, value) {
-  return h(
-    'div',
-    { style: { display: 'flex', gap: 'var(--s4)', justifyContent: 'space-between' } },
-    h('span.muted.small', label),
-    h('span.mono.small', value),
-  );
 }
