@@ -111,6 +111,12 @@ export const api = {
     clear: () => request('DELETE', '/api/draft'),
   },
 
+  /** Where a sale happened, on a map. */
+  location: {
+    reverse: (lat, lng) => request('GET', `/api/geocode/reverse?lat=${lat}&lng=${lng}`),
+    mapUrl: (lat, lng, w = 300, h = 150) => `/api/map/static?lat=${lat}&lng=${lng}&w=${w}&h=${h}`,
+  },
+
   backup: {
     status: () => request('GET', '/api/backup/status'),
     run: () => request('POST', '/api/backup/run', {}),

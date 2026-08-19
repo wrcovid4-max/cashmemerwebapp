@@ -180,6 +180,11 @@ export async function renderReceiptForm({ params, go }) {
       page === 2 && (receipt.issuer_name || receipt.issuer_email)
         ? h('.p-sub', { style: { marginTop: 'var(--s3)' } }, [receipt.issuer_name, receipt.issuer_email].filter(Boolean).join(' · '))
         : null,
+      // The map of where the sale happened — your copy only, and only when the
+      // Maps feature is switched on (otherwise the image would just 404).
+      page === 2 && receipt.lat != null && receipt.lng != null && store.features?.maps?.ready
+        ? h('img.p-map', { src: api.location.mapUrl(receipt.lat, receipt.lng, 300, 150), alt: 'Map of where this sale happened' })
+        : null,
     ];
   }
 
@@ -467,6 +472,49 @@ export async function renderReceiptForm({ params, go }) {
   scanner.addEventListener('status', updateScannerBadge);
   updateScannerBadge();
 
+  /* ---- where the sale happened -------------------------------------- */
+
+  // Kept as a reference so a captured address can be written straight back into it.
+  const locationInput = h('input', bind('location_address'));
+  const locationStatus = h('span.map-status');
+
+  function captureLocation(btn) {
+    if (!navigator.geolocation) {
+      toast('This device cannot find your location.', 'warn');
+      return;
+    }
+    btn.disabled = true;
+    locationStatus.textContent = 'Finding location…';
+    locationStatus.className = 'map-status working';
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        receipt.lat = pos.coords.latitude;
+        receipt.lng = pos.coords.longitude;
+        // The address is a bonus (it needs the Maps feature); the GPS point on
+        // its own is already enough to draw the map and stamp the receipt.
+        try {
+          const { address } = await api.location.reverse(receipt.lat, receipt.lng);
+          if (address) {
+            receipt.location_address = address;
+            locationInput.value = address;
+          }
+        } catch {
+          /* leave the address as it was */
+        }
+        locationStatus.textContent = '✓ Location captured';
+        locationStatus.className = 'map-status ok';
+        btn.disabled = false;
+        repaint();
+      },
+      () => {
+        locationStatus.textContent = 'Could not get location — allow it in your browser and retry.';
+        locationStatus.className = 'map-status err';
+        btn.disabled = false;
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  }
+
   mount(
     formCol,
     datalist,
@@ -515,7 +563,17 @@ export async function renderReceiptForm({ params, go }) {
         '.field',
         { style: { marginTop: 'var(--s4)' } },
         h('label', t('locationAddress')),
-        h('input', bind('location_address')),
+        locationInput,
+        h(
+          '.row-actions',
+          { style: { marginTop: 'var(--s2)' } },
+          h(
+            'button.btn.small',
+            { type: 'button', onclick: (e) => captureLocation(e.currentTarget) },
+            '📍 Capture location',
+          ),
+          locationStatus,
+        ),
       ),
       h(
         '.grid-3',

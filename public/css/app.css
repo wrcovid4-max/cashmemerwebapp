@@ -756,6 +756,21 @@ textarea::placeholder {
   color: #6b7280;
   margin-top: var(--s4);
 }
+.paper .p-map {
+  display: block;
+  width: 100%;
+  margin-top: var(--s3);
+  border-radius: 6px;
+}
+
+/* The "Capture location" progress line, next to its button. */
+.map-status {
+  font-size: 12px;
+  align-self: center;
+}
+.map-status.working { color: var(--muted); }
+.map-status.ok { color: var(--accent-text); font-weight: 700; }
+.map-status.err { color: var(--danger, #c0392b); }
 
 /* The preview shows both pages of the memo, one above the other. */
 .paper-stack {

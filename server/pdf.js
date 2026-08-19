@@ -31,6 +31,7 @@ import fontkit from 'fontkit';
 import { FONTS_DIR } from './paths.js';
 import { computeTotals, lineTotal } from '../shared/totals.js';
 import { currencySymbol, formatAmount } from '../shared/currency.js';
+import { staticMapImage } from './maps.js';
 
 /* ------------------------------------------------------------------ *
  * Fonts
@@ -348,7 +349,7 @@ class MemoPage {
  *
  * @returns {number} the height the page needs
  */
-function layoutPage(doc, receipt, totals, qrImage, { page, draw, fonts }) {
+function layoutPage(doc, receipt, totals, qrImage, { page, draw, fonts, mapImage = null }) {
   const P = new MemoPage(doc, { draw, fonts });
   const L = LAYOUT;
   const cur = receipt.currency;
@@ -551,6 +552,20 @@ function layoutPage(doc, receipt, totals, qrImage, { page, draw, fonts }) {
         { size: L.size.address },
       );
     }
+    // The map itself — your copy (page 2) only, and only when one was fetched.
+    if (isPage2 && mapImage) {
+      const mapW = L.right - (L.left + 11);
+      const mapH = Math.round(mapW / 2);
+      const mapTop = baseline + 12;
+      if (draw) {
+        try {
+          doc.image(mapImage, L.left + 11, mapTop, { fit: [mapW, mapH], align: 'left' });
+        } catch {
+          /* a bad image must never stop the memo printing */
+        }
+      }
+      baseline = mapTop + mapH;
+    }
     P.y = baseline + 36;
     P.rule(1);
   }
@@ -683,6 +698,13 @@ async function qrImageFor(receipt, totals) {
   }
 }
 
+/** The static-map PNG for a receipt's location, or null. Never throws. */
+async function mapBufferFor(receipt) {
+  if (receipt.lat == null || receipt.lng == null) return null;
+  const image = await staticMapImage(receipt.lat, receipt.lng, { width: 600, height: 300 });
+  return image?.buffer ?? null;
+}
+
 /**
  * Builds one PDF holding any number of memos.
  *
@@ -724,11 +746,15 @@ export async function renderReceiptsPdf(receipts) {
   for (const receipt of list) {
     const totals = totalsOf(receipt);
     const qrImage = await qrImageFor(receipt, totals);
+    // The map of where the sale happened, for page 2. Null when there is no
+    // location, no Maps key, or Google could not be reached — and null is fine,
+    // the memo just prints without it.
+    const mapImage = await mapBufferFor(receipt);
 
     for (const page of wanted) {
       // Pass one: how tall does this page need to be?
       const height = Math.ceil(
-        layoutPage(doc, receipt, totals, qrImage, { page, draw: false, fonts }),
+        layoutPage(doc, receipt, totals, qrImage, { page, draw: false, fonts, mapImage }),
       );
 
       doc.addPage({ size: [LAYOUT.pageWidth, height], margin: 0 });
