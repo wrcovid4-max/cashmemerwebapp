@@ -689,14 +689,26 @@ textarea::placeholder {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--s5);
   align-items: start;
+  /* Two independent scroll regions. The layout fills the viewport and does not
+     scroll itself; each column scrolls on its own, so a long form and a long
+     receipt preview no longer share (and fight over) a single page scrollbar.
+     Height = viewport minus the .content padding (var(--s6) top and bottom). */
+  height: calc(100vh - 2 * var(--s6));
+  overflow: hidden;
+}
+.receipt-layout > div {
+  min-height: 0;          /* let the grid child actually shrink so it can scroll */
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-inline-end: var(--s2); /* keep content clear of the scrollbar */
 }
 
 .preview-rail {
-  position: sticky;
-  top: var(--s6);
   display: grid;
   gap: var(--s2);
   justify-items: center;
+  align-content: start;   /* pin the paper to the top of its own scroll area */
 }
 .preview-rail .caption {
   color: var(--muted);
@@ -886,9 +898,16 @@ textarea::placeholder {
 @media (max-width: 1080px) {
   .receipt-layout {
     grid-template-columns: minmax(0, 1fr);
+    /* Stacked: go back to one natural page scroll instead of two short panes. */
+    height: auto;
+    overflow: visible;
+  }
+  .receipt-layout > div {
+    height: auto;
+    overflow: visible;
+    padding-inline-end: 0;
   }
   .preview-rail {
-    position: static;
     max-width: 340px;
   }
 }
