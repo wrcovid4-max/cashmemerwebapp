@@ -981,6 +981,25 @@ textarea::placeholder {
    small screens — the app is usable on the phone browser too
    ========================================================================== */
 
+/* Side by side (wide screens): the form and the live preview each get their
+   own scrollbar, so a long receipt and the two-page preview scroll on their own
+   rather than dragging the whole page up and down together. */
+@media (min-width: 1081px) {
+  .receipt-layout {
+    height: calc(100vh - 2 * var(--s6));
+  }
+  .receipt-layout > * {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    padding-inline-end: var(--s3);
+  }
+  .preview-rail {
+    position: static;
+    align-content: start;
+  }
+}
+
 @media (max-width: 1080px) {
   .receipt-layout {
     grid-template-columns: minmax(0, 1fr);
