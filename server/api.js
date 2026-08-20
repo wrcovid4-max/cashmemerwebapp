@@ -194,6 +194,7 @@ export function createApi({ urls }) {
     category: str(b.category, 'General').trim() || 'General',
     cost_price: num(b.cost_price ?? b.costPrice),
     sell_price: num(b.sell_price ?? b.sellPrice),
+    tax_percent: num(b.tax_percent ?? b.taxPercent),
     stock: num(b.stock),
     unit: str(b.unit, 'pcs').trim() || 'pcs',
     archived: b.archived ? 1 : 0,
@@ -207,10 +208,10 @@ export function createApi({ urls }) {
       const ts = nowIso();
       const info = db
         .prepare(
-          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, stock, unit, archived, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, tax_percent, stock, unit, archived, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.stock, f.unit, f.archived, ts, ts);
+        .run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.tax_percent, f.stock, f.unit, f.archived, ts, ts);
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid));
     }),
   );
@@ -222,8 +223,8 @@ export function createApi({ urls }) {
       if (!f.name) throw new Error('A product needs a name.');
       db.prepare(
         `UPDATE products SET name=?, barcode=?, brand=?, category=?, cost_price=?, sell_price=?,
-         stock=?, unit=?, archived=?, updated_at=? WHERE id=?`,
-      ).run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.stock, f.unit, f.archived, nowIso(), Number(req.params.id));
+         tax_percent=?, stock=?, unit=?, archived=?, updated_at=? WHERE id=?`,
+      ).run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.tax_percent, f.stock, f.unit, f.archived, nowIso(), Number(req.params.id));
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(Number(req.params.id)));
     }),
   );
@@ -237,10 +238,10 @@ export function createApi({ urls }) {
       // The barcode is deliberately not copied — two products cannot share one.
       const info = db
         .prepare(
-          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, stock, unit, archived, created_at, updated_at)
-           VALUES (?, '', ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, tax_percent, stock, unit, archived, created_at, updated_at)
+           VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
         )
-        .run(`${src.name} (copy)`, src.brand, src.category, src.cost_price, src.sell_price, src.stock, src.unit, ts, ts);
+        .run(`${src.name} (copy)`, src.brand, src.category, src.cost_price, src.sell_price, src.tax_percent, src.stock, src.unit, ts, ts);
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid));
     }),
   );

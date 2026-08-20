@@ -147,7 +147,7 @@ export async function renderInventory() {
   function edit(product) {
     const p = product ?? {
       name: '', barcode: '', brand: '', category: 'General',
-      cost_price: 0, sell_price: 0, stock: 0, unit: 'pcs', archived: 0,
+      cost_price: 0, sell_price: 0, tax_percent: 0, stock: 0, unit: 'pcs', archived: 0,
     };
     const f = {};
     const input = (key, attrs = {}) =>
@@ -177,6 +177,10 @@ export async function renderInventory() {
         '.grid-3',
         h('.field', h('label', t('costPrice')), input('cost_price', { type: 'number', step: 'any' })),
         h('.field', h('label', t('sellingPrice')), input('sell_price', { type: 'number', step: 'any' })),
+        h('.field', h('label', t('taxPercent')), input('tax_percent', { type: 'number', step: 'any', min: '0' })),
+      ),
+      h(
+        '.grid-2',
         h('.field', h('label', t('stock')), input('stock', { type: 'number', step: 'any' })),
       ),
       h(
@@ -194,6 +198,7 @@ export async function renderInventory() {
                 unit: f.unit.value,
                 cost_price: Number(f.cost_price.value) || 0,
                 sell_price: Number(f.sell_price.value) || 0,
+                tax_percent: Number(f.tax_percent.value) || 0,
                 stock: Number(f.stock.value) || 0,
                 archived: p.archived ?? 0,
               };
