@@ -939,10 +939,14 @@ textarea::placeholder {
   display: grid;
   gap: var(--s4);
 }
-.receipt-row .row-actions {
+.row-actions {
   display: flex;
-  gap: var(--s2);
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+.receipt-row .row-actions {
+  gap: var(--s2);
 }
 
 /* ==========================================================================

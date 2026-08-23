@@ -18,7 +18,7 @@ import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
-import { staticMapImage, reverseGeocode } from './maps.js';
+import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -116,12 +116,29 @@ export function createApi({ urls }) {
 
   /* ---- what the app needs before it can draw anything --------------- */
 
+  // Settings as the browser is allowed to see them: the Maps key is never sent
+  // out (only whether one is set), so it stays on the server like other keys.
+  function clientSettings() {
+    const s = allSettings();
+    const hasMapsKey = Boolean(String(s.mapsApiKey || '').trim() || env.mapsApiKey);
+    delete s.mapsApiKey;
+    s.mapsKeySet = hasMapsKey;
+    return s;
+  }
+
+  function clientFeatures() {
+    const features = featureStatus();
+    // A key entered in Settings counts too, not just one from .env.
+    if (features.maps) features.maps.ready = mapsReady();
+    return features;
+  }
+
   api.get(
     '/bootstrap',
     guard(async (req, res) => {
       res.json({
-        settings: allSettings(),
-        features: featureStatus(),
+        settings: clientSettings(),
+        features: clientFeatures(),
         currencies: CURRENCIES,
         urls,
         defaults: DEFAULT_SETTINGS,
@@ -132,7 +149,7 @@ export function createApi({ urls }) {
 
   /* ---- settings ------------------------------------------------------ */
 
-  api.get('/settings', guard(async (req, res) => res.json(allSettings())));
+  api.get('/settings', guard(async (req, res) => res.json(clientSettings())));
 
   api.put(
     '/settings',
@@ -141,7 +158,7 @@ export function createApi({ urls }) {
       for (const [key, value] of Object.entries(incoming)) {
         setSetting(key, value);
       }
-      res.json(allSettings());
+      res.json(clientSettings());
     }),
   );
 

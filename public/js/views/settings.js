@@ -198,6 +198,31 @@ export async function renderSettings({ params } = {}) {
         textSetting('storeName', 'Store name', 'Mart (Example)'),
         textSetting('storeAddress', 'Store address'),
       ),
+      // The Maps key lives with the store's location settings. It is stored on
+      // this device and never shown back, so the field starts blank.
+      h(
+        '.field',
+        { style: { marginTop: 'var(--s4)' } },
+        h('label', 'Google Maps key — for the location map'),
+        h('input', {
+          type: 'password',
+          autocomplete: 'off',
+          placeholder: s.mapsKeySet
+            ? 'A key is saved — type a new one to replace it'
+            : 'Paste your Google Maps key',
+          onchange: async (e) => {
+            const value = e.target.value.trim();
+            if (!value) return;
+            await saveSettings({ mapsApiKey: value });
+            e.target.value = '';
+            toast('Maps key saved. Reload to see the map on new receipts.');
+          },
+        }),
+        h(
+          'p.small.muted',
+          'Turns on the map of where each sale happened. Kept on this device and never shown again.',
+        ),
+      ),
       h(
         '.grid-2',
         { style: { marginTop: 'var(--s4)' } },

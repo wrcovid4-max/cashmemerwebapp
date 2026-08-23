@@ -11,10 +11,16 @@
  * memo will not print or a sale cannot be saved.
  */
 import { env } from './env.js';
+import { getSetting } from './db.js';
 
-/** Is the maps feature switched on (a key is present)? */
+/** The key in use: one entered in Settings wins, otherwise the one from .env. */
+function mapsKey() {
+  return String(getSetting('mapsApiKey') || env.mapsApiKey || '').trim();
+}
+
+/** Is the maps feature switched on (a key is present, from Settings or .env)? */
 export function mapsReady() {
-  return Boolean(env.mapsApiKey);
+  return Boolean(mapsKey());
 }
 
 /** Guards against nonsense coordinates before they reach Google. */
@@ -41,7 +47,8 @@ async function withTimeout(promise) {
  * @returns {Promise<{ buffer: Buffer, contentType: string } | null>}
  */
 export async function staticMapImage(lat, lng, { width = 320, height = 160, zoom = 15 } = {}) {
-  if (!env.mapsApiKey || !validCoords(lat, lng)) return null;
+  const key = mapsKey();
+  if (!key || !validCoords(lat, lng)) return null;
 
   const point = `${Number(lat)},${Number(lng)}`;
   const url =
@@ -52,7 +59,7 @@ export async function staticMapImage(lat, lng, { width = 320, height = 160, zoom
       size: `${width}x${height}`,
       scale: '2',
       markers: `color:0x2E6B1F|${point}`,
-      key: env.mapsApiKey,
+      key,
     }).toString();
 
   try {
@@ -72,11 +79,12 @@ export async function staticMapImage(lat, lng, { width = 320, height = 160, zoom
  * @returns {Promise<string | null>}
  */
 export async function reverseGeocode(lat, lng) {
-  if (!env.mapsApiKey || !validCoords(lat, lng)) return null;
+  const key = mapsKey();
+  if (!key || !validCoords(lat, lng)) return null;
 
   const url =
     'https://maps.googleapis.com/maps/api/geocode/json?' +
-    new URLSearchParams({ latlng: `${Number(lat)},${Number(lng)}`, key: env.mapsApiKey }).toString();
+    new URLSearchParams({ latlng: `${Number(lat)},${Number(lng)}`, key }).toString();
 
   try {
     const res = await withTimeout((signal) => fetch(url, { signal }));

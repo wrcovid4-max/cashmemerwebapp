@@ -163,6 +163,9 @@ const DEFAULT_SETTINGS = {
   lastBackupAt: '',
   lastBackupError: '',
   lowStockThreshold: 5,
+  // The Google Maps key can live here (entered in Settings) as well as in .env.
+  // It is never sent to the browser — the server redacts it from settings responses.
+  mapsApiKey: '',
 };
 
 export function getSetting(key) {
