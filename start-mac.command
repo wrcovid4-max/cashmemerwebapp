@@ -37,10 +37,9 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-# --- First-run setup ---------------------------------------------------------
-if [ ! -d node_modules ]; then
-  echo "  First-time setup — installing what the app needs."
-  echo "  This happens only once and can take a minute. Please wait…"
+# --- Install / update the app's parts ---------------------------------------
+if [ ! -d node_modules ] || [ package.json -nt node_modules ]; then
+  echo "  Installing what the app needs (quick if already done)…"
   echo ""
   if ! npm install; then
     echo ""

@@ -40,15 +40,15 @@ NODE_BIN="$(command -v node)"
 NODE_DIR="$(dirname "$NODE_BIN")"
 echo "  Using Node at: $NODE_BIN"
 
-# --- First-run install -------------------------------------------------------
-if [ ! -d node_modules ]; then
-  echo "  Installing what the app needs (once, may take a minute)…"
-  if ! npm install; then
-    echo "  Setup did not finish. Check your internet and run this again."
-    echo "  Press any key to close."
-    read -n 1 -s -r
-    exit 1
-  fi
+# --- Install / update the app's parts ---------------------------------------
+# Always run install, not just the first time, so an update picks up any new
+# parts (it is quick when everything is already there).
+echo "  Making sure the app's parts are installed (quick if already done)…"
+if ! npm install; then
+  echo "  Setup did not finish. Check your internet and run this again."
+  echo "  Press any key to close."
+  read -n 1 -s -r
+  exit 1
 fi
 
 mkdir -p data "$HOME/Library/LaunchAgents"
