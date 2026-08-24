@@ -16,7 +16,7 @@ import { env, featureStatus } from './env.js';
 import { computeTotals, TAX_BASES, DEFAULT_TAX_BASE } from '../shared/totals.js';
 import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
-import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
+import { exportDatabase, importDatabase } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
 import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
 import {
@@ -839,25 +839,6 @@ export function createApi({ urls }) {
       const mode = str(req.body?.mode, 'replace');
       const counts = importDatabase(req.body?.payload, { mode });
       res.json({ ok: true, mode, counts });
-    }),
-  );
-
-  api.post(
-    '/backup/run',
-    guard(async (req, res) => res.json(await runBackupNow())),
-  );
-
-  api.get(
-    '/backup/status',
-    guard(async (req, res) => {
-      const s = allSettings();
-      res.json({
-        enabled: Boolean(s.backupEnabled),
-        folder: s.backupFolder ?? '',
-        lastBackupAt: s.lastBackupAt ?? '',
-        lastBackupError: s.lastBackupError ?? '',
-        keep: KEEP_SNAPSHOTS,
-      });
     }),
   );
 

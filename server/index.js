@@ -23,7 +23,6 @@ import { primaryLanAddress, lanAddresses } from './net.js';
 import { ensureCertificate } from './certs.js';
 import { attachScanHub } from './scanhub.js';
 import { createApi } from './api.js';
-import { startBackupSchedule } from './backup.js';
 import { requireSignIn, hasPasscode, setPasscode } from './auth.js';
 
 ensureDirs();
@@ -252,8 +251,6 @@ httpServer.listen(env.port, '0.0.0.0', () => {
   } else {
     banner();
   }
-
-  startBackupSchedule();
 
   const others = env.hosted ? [] : lanAddresses().slice(1);
   if (others.length > 0) {

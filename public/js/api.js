@@ -118,8 +118,6 @@ export const api = {
   },
 
   backup: {
-    status: () => request('GET', '/api/backup/status'),
-    run: () => request('POST', '/api/backup/run', {}),
     importJson: (payload, mode) => request('POST', '/api/backup/import', { payload, mode }),
   },
 

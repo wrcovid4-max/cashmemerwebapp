@@ -27,10 +27,9 @@ JSON export:
 
 > **Settings → Backup & restore → Export everything as JSON**
 
-Do that now, before you need it. Then turn on **Automatic daily backup** on the
-same screen and point it at a folder that syncs off this machine — a Google
-Drive, Dropbox, OneDrive or iCloud folder. After that it keeps the newest 30
-snapshots on its own and you never have to think about it again.
+Do that now, before you need it, and keep the file somewhere safe. Restore reads
+it back on this or another computer. That one file is your whole shop — save a
+fresh one every so often.
 
 ---
 
@@ -233,7 +232,7 @@ Each receipt records the rule it was issued under. Changing this setting
 affects new receipts only — it can never re-total a memo you already handed to
 a customer.
 
-Downloads are named the same way your Android app names them:
+Downloads are named with a clear, consistent convention:
 
 ```
 Receipt_41___Mart_Example___20260801_22_32_29___Cash_Memer.pdf
@@ -331,10 +330,7 @@ I would rather tell you this than have you find out at the counter.
 - Every API endpoint, against a running server
 - **Backup export, wipe and restore as a round trip** — the data came back
   intact, and a file that is not a Cash Memer backup is refused rather than
-  half-imported. Also that only the newest 30 snapshots survive, that unrelated
-  files in that folder are left alone, and that a backup folder which has gone
-  offline fails with a message instead of taking the app down —
-  `node test/backup.mjs`
+  half-imported — `node test/backup.mjs`
 - **Which fields appear on which page of the memo** — 28 checks that read the
   text back out of the generated PDF, confirming page 1 does not carry the
   customer's phone, email or address, the page-2 note or the issuer account,
@@ -369,28 +365,6 @@ I would rather tell you this than have you find out at the counter.
   written but unrun. The failure path is handled and names the likely cause.
 - **The live rates and Gemini calls.** No keys here. The missing-key paths are
   tested; the successful calls are not.
-- **Automatic daily backup firing on its schedule.** "Back up now" works,
-  writes a snapshot and prunes correctly; the once-a-day timer itself has not
-  been watched for a day.
-
-### One bug found and fixed while testing
-
-Worth telling you about, because it would have hit you and not most people.
-
-The backup was originally written using Node's synchronous file calls. Against
-a folder on this computer that is perfectly fine. Against the folder this
-README tells you to use — a Google Drive, Dropbox or OneDrive folder, or a
-drive on the network — it is not, because when one of those is disconnected a
-write to it does not fail, it hangs. Node runs the whole app on a single
-thread, so that hang froze **everything**: no screens, no receipts, no
-scanner, mid-sale. I reproduced it, and the server had to be killed outright
-rather than stopped.
-
-It is all asynchronous now and capped at 20 seconds. An unreachable backup
-folder costs you a failed backup and a message naming the likely cause; the
-till keeps working. `node test/backup.mjs` checks the app still answers while
-a backup to a dead folder is failing.
-
 ### One thing in your sample PDF that does not add up — now a setting
 
 Your sample receipt shows: subtotal ₨ 60.00, discount ₨ 50.00, tax 15% shown
@@ -399,7 +373,7 @@ as ₨ 1.50, and a grand total of **₨ 16.50**.
 Those do not reconcile, and not because of a different convention — I checked
 both. Tax after the discount gives ₨ 11.50; tax on the full price gives
 ₨ 19.00. Neither produces 16.50. The change given (₨ 483.50 from ₨ 500)
-matches 16.50 too, so the old app was consistently wrong rather than mistyped
+matches 16.50 too, so the sample was consistently wrong rather than mistyped
 once.
 
 Rather than pick for you, **Settings → Tax** now offers both rules, defaulting

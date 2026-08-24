@@ -1,7 +1,7 @@
 /**
  * The printed cash memo.
  *
- * This is a deliberate, measured copy of the memo the Android app produces —
+ * This is a deliberate, measured copy of the supplied sample memo —
  * same 600-point-wide continuous page, same off-white paper on a beige border,
  * same navy "CASH MEMO" heading, same double rules, same wording. The
  * measurements in LAYOUT below were taken off the sample PDF pixel by pixel,

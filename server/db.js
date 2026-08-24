@@ -158,10 +158,6 @@ const DEFAULT_SETTINGS = {
   taxBase: 'after-discount',
   issuerName: '',
   issuerEmail: '',
-  backupFolder: '',
-  backupEnabled: false,
-  lastBackupAt: '',
-  lastBackupError: '',
   lowStockThreshold: 5,
   // The Google Maps key can live here (entered in Settings) as well as in .env.
   // It is never sent to the browser — the server redacts it from settings responses.

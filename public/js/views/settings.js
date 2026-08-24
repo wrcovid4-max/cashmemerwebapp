@@ -8,10 +8,10 @@
 import { h, mount, toast, confirmDialog } from '../dom.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
-import { store, saveSettings, formatDateTime } from '../store.js';
+import { store, saveSettings } from '../store.js';
 
 export async function renderSettings({ params } = {}) {
-  const [auth, backup] = await Promise.all([api.auth.status(), api.backup.status()]);
+  const auth = await api.auth.status();
   const s = store.settings;
 
   const root = h('div');
@@ -46,9 +46,8 @@ export async function renderSettings({ params } = {}) {
       }),
     );
 
-  const backupHost = h('div');
   const lockHost = h('div');
-  // Status line for the "Back up & sync now" button in the Google card.
+  // Status line for the "Back up" button in the Google card.
   const gSyncStatus = h('span.backup-status');
 
   /** Repaints the passcode card, so the device count stays honest. */
@@ -149,24 +148,6 @@ export async function renderSettings({ params } = {}) {
     );
   }
 
-  function paintBackup(status) {
-    mount(
-      backupHost,
-      status.lastBackupError
-        ? h(
-            '.notice.error',
-            h('.grow', h('strong', 'The last automatic backup failed'), h('p.small', status.lastBackupError)),
-          )
-        : h(
-            '.notice' + (status.lastBackupAt ? '.info' : ''),
-            h(
-              '.grow',
-              h('strong', `${t('lastBackup')}: ${status.lastBackupAt ? formatDateTime(status.lastBackupAt) : t('never')}`),
-              h('p.small', `The newest ${status.keep} snapshots are kept; older ones are deleted automatically.`),
-            ),
-          ),
-    );
-  }
 
   mount(
     root,
@@ -329,7 +310,11 @@ export async function renderSettings({ params } = {}) {
     h(
       '.card',
       h('h2', t('backupRestore')),
-      backupHost,
+      h(
+        'p.small.muted',
+        'Export saves your whole shop as one file you keep. Restore reads it back on this or another ' +
+          'computer. It is the only copy that moves with you, so save one now and then.',
+      ),
       h(
         '.row-actions',
         { style: { marginTop: 'var(--s4)' } },
@@ -377,49 +362,6 @@ export async function renderSettings({ params } = {}) {
           },
           `⬆ ${t('importJson')}`,
         ),
-      ),
-
-      h('h3', { style: { marginTop: 'var(--s6)' } }, t('automaticBackup')),
-      h(
-        'p.small.muted',
-        'Choose a folder that syncs online — Google Drive, Dropbox, OneDrive or iCloud — and a ' +
-          'copy of your shop is saved there every day, all on its own.',
-      ),
-      h(
-        '.field',
-        { style: { marginTop: 'var(--s3)' } },
-        h('label', t('backupFolder')),
-        h('input', {
-          value: s.backupFolder ?? '',
-          placeholder: 'Your Google Drive folder',
-          onchange: async (e) => {
-            await saveSettings({ backupFolder: e.target.value.trim() });
-            toast('Saved.');
-          },
-        }),
-        h('p.small.muted', 'The folder on this device where daily copies are saved.'),
-      ),
-      toggle('backupEnabled', 'Back up every day', 'Saves a copy once a day, automatically.'),
-      h(
-        'button.btn.small',
-        {
-          style: { marginTop: 'var(--s3)' },
-          onclick: async (e) => {
-            e.currentTarget.disabled = true;
-            try {
-              const result = await api.backup.run();
-              if (result.ok) {
-                toast(`Snapshot written${result.pruned ? `, ${result.pruned} old ones removed` : ''}.`);
-              } else {
-                toast(result.error, 'error');
-              }
-              paintBackup(await api.backup.status());
-            } finally {
-              e.currentTarget.disabled = false;
-            }
-          },
-        },
-        t('backupNow'),
       ),
     ),
 
@@ -508,18 +450,18 @@ export async function renderSettings({ params } = {}) {
           {
             onclick: async (e) => {
               const btn = e.currentTarget;
+              if (!store.features?.firebase?.ready) {
+                gSyncStatus.textContent = 'Cloud sync needs your Firebase details first (coming).';
+                gSyncStatus.className = 'backup-status working';
+                return;
+              }
               btn.disabled = true;
               gSyncStatus.textContent = 'Syncing…';
               gSyncStatus.className = 'backup-status working';
               try {
-                const result = await api.backup.run();
-                if (result.ok) {
-                  gSyncStatus.textContent = '✓ Synced';
-                  gSyncStatus.className = 'backup-status ok';
-                } else {
-                  gSyncStatus.textContent = result.error;
-                  gSyncStatus.className = 'backup-status err';
-                }
+                const r = await api.sync.now();
+                gSyncStatus.textContent = `✓ Synced — ${r.pushed} up, ${r.pulled} down`;
+                gSyncStatus.className = 'backup-status ok';
               } catch (err) {
                 gSyncStatus.textContent = err.message;
                 gSyncStatus.className = 'backup-status err';
@@ -535,13 +477,12 @@ export async function renderSettings({ params } = {}) {
       h(
         'p.small.muted',
         { style: { marginTop: 'var(--s2)' } },
-        'Back up saves a copy to this device. Sync sends a copy to your online folder.',
+        'Back up saves a file to this device. Sync keeps your shop in your Google account, across ' +
+          'every device — through Firebase, never a Drive folder.',
       ),
     ),
-
   );
 
-  paintBackup(backup);
   paintLock();
 
   // Arriving from the sidebar's "Sign in with Google" lands on the Google card
