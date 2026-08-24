@@ -11,6 +11,14 @@
 .env.local
 .env.*.local
 
+# Firebase service-account keys — the master key to your whole project.
+# These must NEVER be committed. Any JSON that looks like one is blocked here.
+*serviceaccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+firebase-key.json
+secrets/
+
 # Installed packages — recreated by `npm install`
 node_modules/
 
