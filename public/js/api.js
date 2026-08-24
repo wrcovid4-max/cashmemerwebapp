@@ -121,6 +121,12 @@ export const api = {
     importJson: (payload, mode) => request('POST', '/api/backup/import', { payload, mode }),
   },
 
+  /** Cloud sync with your Firebase project. */
+  sync: {
+    status: () => request('GET', '/api/sync/status'),
+    preview: () => request('POST', '/api/sync/preview', {}),
+  },
+
   auth: {
     status: () => request('GET', '/api/auth/status'),
     signOut: () => request('POST', '/api/auth/signout', {}),

@@ -142,6 +142,9 @@ export const env = {
   exchangeRateApiKey: readKey('EXCHANGE_RATE_API_KEY'),
   geminiApiKey: readKey('GEMINI_API_KEY'),
   mapsApiKey: readKey('MAPS_API_KEY'),
+  // Path to the Firebase service-account JSON. Optional — the app also looks for
+  // firebase-service-account.json in the project root and data/ folder.
+  firebaseServiceAccount: read('FIREBASE_SERVICE_ACCOUNT'),
   googleClientId: readKey('GOOGLE_CLIENT_ID'),
   googleClientSecret: readKey('GOOGLE_CLIENT_SECRET'),
 };

@@ -19,6 +19,8 @@ import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
 import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
+import { firebaseStatus, firebaseReady } from './firebase.js';
+import { preview as firebasePreview } from './firesync.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -126,10 +128,12 @@ export function createApi({ urls }) {
     return s;
   }
 
-  function clientFeatures() {
+  async function clientFeatures() {
     const features = featureStatus();
     // A key entered in Settings counts too, not just one from .env.
     if (features.maps) features.maps.ready = mapsReady();
+    // Whether the server can reach your Firebase for cloud sync.
+    features.firebase = { ready: await firebaseReady() };
     return features;
   }
 
@@ -138,7 +142,7 @@ export function createApi({ urls }) {
     guard(async (req, res) => {
       res.json({
         settings: clientSettings(),
-        features: clientFeatures(),
+        features: await clientFeatures(),
         currencies: CURRENCIES,
         urls,
         defaults: DEFAULT_SETTINGS,
@@ -146,6 +150,13 @@ export function createApi({ urls }) {
       });
     }),
   );
+
+  /* ---- cloud sync (Firebase) ------------------------------------------------ */
+
+  api.get('/sync/status', guard(async (req, res) => res.json(await firebaseStatus())));
+
+  // Step one: read-only. Counts what is already in your cloud for this account.
+  api.post('/sync/preview', guard(async (req, res) => res.json(await firebasePreview())));
 
   /* ---- settings ------------------------------------------------------ */
 

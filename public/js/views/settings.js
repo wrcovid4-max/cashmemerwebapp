@@ -451,16 +451,16 @@ export async function renderSettings({ params } = {}) {
             onclick: async (e) => {
               const btn = e.currentTarget;
               if (!store.features?.firebase?.ready) {
-                gSyncStatus.textContent = 'Cloud sync needs your Firebase details first (coming).';
+                gSyncStatus.textContent = 'Cloud sync needs your Firebase key on this device first.';
                 gSyncStatus.className = 'backup-status working';
                 return;
               }
               btn.disabled = true;
-              gSyncStatus.textContent = 'Syncing…';
+              gSyncStatus.textContent = 'Checking your cloud…';
               gSyncStatus.className = 'backup-status working';
               try {
-                const r = await api.sync.now();
-                gSyncStatus.textContent = `✓ Synced — ${r.pushed} up, ${r.pulled} down`;
+                const r = await api.sync.preview();
+                gSyncStatus.textContent = `✓ Connected — ${r.cashMemos} receipts, ${r.manualProducts} products in your cloud`;
                 gSyncStatus.className = 'backup-status ok';
               } catch (err) {
                 gSyncStatus.textContent = err.message;
