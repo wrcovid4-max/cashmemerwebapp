@@ -10,7 +10,7 @@ import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { store, saveSettings, formatDateTime } from '../store.js';
 
-export async function renderSettings() {
+export async function renderSettings({ params } = {}) {
   const [auth, backup] = await Promise.all([api.auth.status(), api.backup.status()]);
   const s = store.settings;
 
@@ -47,6 +47,107 @@ export async function renderSettings() {
     );
 
   const backupHost = h('div');
+  const lockHost = h('div');
+  // Status line for the "Back up & sync now" button in the Google card.
+  const gSyncStatus = h('span.backup-status');
+
+  /** Repaints the passcode card, so the device count stays honest. */
+  async function paintLock() {
+    let state;
+    try {
+      state = await api.lock.state();
+    } catch (err) {
+      mount(lockHost, h('.notice.error', h('.grow.small', err.message)));
+      return;
+    }
+
+    const current = h('input', { type: 'password', placeholder: 'current passcode' });
+    const next = h('input', { type: 'password', placeholder: 'new passcode, 4+ characters' });
+    const again = h('input', { type: 'password', placeholder: 'type the new one again' });
+
+    mount(
+      lockHost,
+      h(
+        '.row-actions',
+        { style: { marginBottom: 'var(--s4)' } },
+        h(
+          `span.badge${state.hasPasscode ? '.ok' : '.bad'}`,
+          h('span.dot'),
+          state.hasPasscode ? 'Locked' : 'NO PASSCODE SET',
+        ),
+        h('span.badge', `${state.devices} device${state.devices === 1 ? '' : 's'} signed in`),
+      ),
+
+      h(
+        '.grid-3',
+        state.hasPasscode ? h('.field', h('label', 'Current'), current) : null,
+        h('.field', h('label', 'New passcode'), next),
+        h('.field', h('label', 'Confirm'), again),
+      ),
+
+      h(
+        '.row-actions',
+        { style: { marginTop: 'var(--s4)' } },
+        h(
+          'button.btn.small.primary',
+          {
+            onclick: async (e) => {
+              if (next.value !== again.value) {
+                toast('The two new passcodes do not match.', 'warn');
+                return;
+              }
+              if (next.value.length < 4) {
+                toast('The passcode needs at least 4 characters.', 'warn');
+                return;
+              }
+              e.currentTarget.disabled = true;
+              try {
+                await api.lock.change(current.value, next.value);
+                toast('Passcode changed. Every other device has been signed out.');
+                paintLock();
+              } catch (err) {
+                toast(err.message, 'error');
+              } finally {
+                e.currentTarget.disabled = false;
+              }
+            },
+          },
+          state.hasPasscode ? 'Change passcode' : 'Set a passcode',
+        ),
+
+        h(
+          'button.btn.small',
+          {
+            onclick: async () => {
+              await api.lock.lockNow();
+              location.replace('/login');
+            },
+          },
+          'Lock this device now',
+        ),
+
+        // For a phone that has been lost, or a device you cannot get back to.
+        h(
+          'button.btn.small.danger',
+          {
+            onclick: async () => {
+              const yes = await confirmDialog({
+                title: 'Sign every device out?',
+                body:
+                  'Every phone and computer, including this one, will have to enter the ' +
+                  'passcode again. Use this if a phone has gone missing.',
+                confirmLabel: 'Sign all out',
+              });
+              if (!yes) return;
+              await api.lock.signOutEverywhere();
+              location.replace('/login');
+            },
+          },
+          'Sign out everywhere',
+        ),
+      ),
+    );
+  }
 
   function paintBackup(status) {
     mount(
@@ -71,18 +172,17 @@ export async function renderSettings() {
     root,
     h('.page-head', h('h1', t('settings'))),
 
-    /* ---- what a clone will not give you ---- */
+    /* ---- keep a copy of your shop ---- */
     h(
       '.notice.warn',
       h('span', '⚠️'),
       h(
         '.grow',
-        h('strong', 'Your receipts are not in git.'),
+        h('strong', 'Keep a copy of your shop.'),
         h(
           'p.small',
-          'A fresh copy of this project from GitHub arrives empty: no receipts, no products, no ' +
-            'customers, no settings, and no API keys. The Export button below produces the one ' +
-            'file that carries all of it. Keep that file somewhere that is not this computer.',
+          'Your receipts and customers live on this device. Use Back up now and then, and keep ' +
+            'the copy somewhere safe, so nothing is lost if this device is.',
         ),
       ),
     ),
@@ -97,6 +197,31 @@ export async function renderSettings() {
         { style: { marginTop: 'var(--s3)' } },
         textSetting('storeName', 'Store name', 'Mart (Example)'),
         textSetting('storeAddress', 'Store address'),
+      ),
+      // The Maps key lives with the store's location settings. It is stored on
+      // this device and never shown back, so the field starts blank.
+      h(
+        '.field',
+        { style: { marginTop: 'var(--s4)' } },
+        h('label', 'Google Maps key — for the location map'),
+        h('input', {
+          type: 'password',
+          autocomplete: 'off',
+          placeholder: s.mapsKeySet
+            ? 'A key is saved — type a new one to replace it'
+            : 'Paste your Google Maps key',
+          onchange: async (e) => {
+            const value = e.target.value.trim();
+            if (!value) return;
+            await saveSettings({ mapsApiKey: value });
+            e.target.value = '';
+            toast('Maps key saved. Reload to see the map on new receipts.');
+          },
+        }),
+        h(
+          'p.small.muted',
+          'Turns on the map of where each sale happened. Kept on this device and never shown again.',
+        ),
       ),
       h(
         '.grid-2',
@@ -146,11 +271,6 @@ export async function renderSettings() {
       '.card',
       h('h2', t('print')),
       toggle('autoPrint', 'Auto-print', 'Send the memo to the print dialog as soon as it is generated.'),
-      toggle(
-        'autoSend',
-        'Auto-send',
-        'Open your mail app (or messages) with the receipt details, ready to send. It never sends on its own.',
-      ),
       toggle('saveSignature', 'Remember my signature', 'Reuse the last signature on the next receipt.'),
       h(
         'p.small.muted',
@@ -262,9 +382,8 @@ export async function renderSettings() {
       h('h3', { style: { marginTop: 'var(--s6)' } }, t('automaticBackup')),
       h(
         'p.small.muted',
-        'Point this at a folder that syncs somewhere else — Google Drive, Dropbox, OneDrive, ' +
-          'iCloud — and a copy of your shop leaves this computer every day without you doing ' +
-          'anything.',
+        'Choose a folder that syncs online — Google Drive, Dropbox, OneDrive or iCloud — and a ' +
+          'copy of your shop is saved there every day, all on its own.',
       ),
       h(
         '.field',
@@ -272,19 +391,15 @@ export async function renderSettings() {
         h('label', t('backupFolder')),
         h('input', {
           value: s.backupFolder ?? '',
-          placeholder: '/Users/you/Google Drive/CashMemer',
+          placeholder: 'Your Google Drive folder',
           onchange: async (e) => {
             await saveSettings({ backupFolder: e.target.value.trim() });
             toast('Saved.');
           },
         }),
-        h(
-          'p.small.muted',
-          'A full path on this computer. The browser cannot open a folder picker for the server, ' +
-            'so this is typed in — copy it from your file manager’s address bar.',
-        ),
+        h('p.small.muted', 'The folder on this device where daily copies are saved.'),
       ),
-      toggle('backupEnabled', 'Back up every day', 'Checked once a day while Cash Memer is running.'),
+      toggle('backupEnabled', 'Back up every day', 'Saves a copy once a day, automatically.'),
       h(
         'button.btn.small',
         {
@@ -308,24 +423,33 @@ export async function renderSettings() {
       ),
     ),
 
+    /* ---- the lock on the till ---- */
+    h(
+      '.card',
+      h('h2', '🔒 Passcode'),
+      h(
+        'p.small.muted',
+        'Protect your shop with a passcode. Each device is asked once and stays signed in for ' +
+          '30 days.',
+      ),
+      lockHost,
+    ),
+
     /* ---- google ---- */
     h(
       '.card',
+      { id: 'googleCard' },
       h('h2', 'Google sign-in'),
       !auth.configured
         ? h(
-            '.notice.warn',
+            '.notice',
             h(
               '.grow',
-              h('strong', 'Not set up — and not required.'),
+              h('strong', 'Google sign-in isn’t connected yet.'),
               h(
                 'p.small',
-                'Sign-in only fills the issuer name and email printed on page 2, which you can ' +
-                  'also just type above. To enable it, put GOOGLE_CLIENT_ID and ' +
-                  'GOOGLE_CLIENT_SECRET in your .env file and restart.',
+                'Connect it to fill your name and email onto your copy of each receipt automatically.',
               ),
-              h('p.small.muted', `Get them at ${auth.where}`),
-              h('p.small.muted', `Authorised redirect URI: ${auth.redirectUri}`),
             ),
           )
         : auth.account
@@ -345,32 +469,93 @@ export async function renderSettings() {
               ),
             )
           : h('a.btn.primary', { href: '/api/auth/google' }, t('signIn')),
-    ),
 
-    /* ---- where things are ---- */
-    h(
-      '.card',
-      h('h2', 'This installation'),
+      // Two separate actions, each with its own plain progress line.
+      h('hr', { style: { border: '0', borderTop: '1px solid var(--line)', margin: 'var(--s4) 0' } }),
       h(
-        'div',
-        { style: { display: 'grid', gap: 'var(--s2)' } },
-        info('On this computer', store.urls.localHttp),
-        info('On your phone', store.urls.lanHttps ?? 'no network found'),
-        info('Database file', 'data/cashmemer.db'),
-        info('Keys file', '.env  (never in git)'),
+        '.row-actions',
+        h(
+          'button.btn.small.primary',
+          {
+            onclick: async (e) => {
+              const btn = e.currentTarget;
+              btn.disabled = true;
+              gSyncStatus.textContent = 'Backing up…';
+              gSyncStatus.className = 'backup-status working';
+              try {
+                const res = await fetch('/api/backup/export');
+                if (!res.ok) throw new Error('Backup could not be created.');
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `cashmemer-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                gSyncStatus.textContent = '✓ Backup done';
+                gSyncStatus.className = 'backup-status ok';
+              } catch (err) {
+                gSyncStatus.textContent = err.message;
+                gSyncStatus.className = 'backup-status err';
+              } finally {
+                btn.disabled = false;
+              }
+            },
+          },
+          'Back up',
+        ),
+        h(
+          'button.btn.small',
+          {
+            onclick: async (e) => {
+              const btn = e.currentTarget;
+              btn.disabled = true;
+              gSyncStatus.textContent = 'Syncing…';
+              gSyncStatus.className = 'backup-status working';
+              try {
+                const result = await api.backup.run();
+                if (result.ok) {
+                  gSyncStatus.textContent = '✓ Synced';
+                  gSyncStatus.className = 'backup-status ok';
+                } else {
+                  gSyncStatus.textContent = result.error;
+                  gSyncStatus.className = 'backup-status err';
+                }
+              } catch (err) {
+                gSyncStatus.textContent = err.message;
+                gSyncStatus.className = 'backup-status err';
+              } finally {
+                btn.disabled = false;
+              }
+            },
+          },
+          'Sync',
+        ),
+        gSyncStatus,
+      ),
+      h(
+        'p.small.muted',
+        { style: { marginTop: 'var(--s2)' } },
+        'Back up saves a copy to this device. Sync sends a copy to your online folder.',
       ),
     ),
+
   );
 
   paintBackup(backup);
-  return root;
-}
+  paintLock();
 
-function info(label, value) {
-  return h(
-    'div',
-    { style: { display: 'flex', gap: 'var(--s4)', justifyContent: 'space-between' } },
-    h('span.muted.small', label),
-    h('span.mono.small', value),
-  );
+  // Arriving from the sidebar's "Sign in with Google" lands on the Google card
+  // rather than the top of a long Settings page.
+  if (params?.get('focus') === 'google') {
+    requestAnimationFrame(() => {
+      const card = root.querySelector('#googleCard');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('flash');
+        setTimeout(() => card.classList.remove('flash'), 1600);
+      }
+    });
+  }
+
+  return root;
 }

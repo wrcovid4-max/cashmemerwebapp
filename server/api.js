@@ -18,6 +18,12 @@ import { CURRENCIES, withDerivedRates } from '../shared/currency.js';
 import { renderReceiptsPdf, receiptFileName } from './pdf.js';
 import { exportDatabase, importDatabase, runBackupNow, KEEP_SNAPSHOTS } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
+import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
+import {
+  hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
+  destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
+  readCookie, isSignedIn, lockoutRemainingMs, recordMiss, clearMisses, COOKIE_NAME,
+} from './auth.js';
 
 /* ------------------------------------------------------------------ *
  * helpers
@@ -110,12 +116,29 @@ export function createApi({ urls }) {
 
   /* ---- what the app needs before it can draw anything --------------- */
 
+  // Settings as the browser is allowed to see them: the Maps key is never sent
+  // out (only whether one is set), so it stays on the server like other keys.
+  function clientSettings() {
+    const s = allSettings();
+    const hasMapsKey = Boolean(String(s.mapsApiKey || '').trim() || env.mapsApiKey);
+    delete s.mapsApiKey;
+    s.mapsKeySet = hasMapsKey;
+    return s;
+  }
+
+  function clientFeatures() {
+    const features = featureStatus();
+    // A key entered in Settings counts too, not just one from .env.
+    if (features.maps) features.maps.ready = mapsReady();
+    return features;
+  }
+
   api.get(
     '/bootstrap',
     guard(async (req, res) => {
       res.json({
-        settings: allSettings(),
-        features: featureStatus(),
+        settings: clientSettings(),
+        features: clientFeatures(),
         currencies: CURRENCIES,
         urls,
         defaults: DEFAULT_SETTINGS,
@@ -126,7 +149,7 @@ export function createApi({ urls }) {
 
   /* ---- settings ------------------------------------------------------ */
 
-  api.get('/settings', guard(async (req, res) => res.json(allSettings())));
+  api.get('/settings', guard(async (req, res) => res.json(clientSettings())));
 
   api.put(
     '/settings',
@@ -135,7 +158,7 @@ export function createApi({ urls }) {
       for (const [key, value] of Object.entries(incoming)) {
         setSetting(key, value);
       }
-      res.json(allSettings());
+      res.json(clientSettings());
     }),
   );
 
@@ -188,6 +211,7 @@ export function createApi({ urls }) {
     category: str(b.category, 'General').trim() || 'General',
     cost_price: num(b.cost_price ?? b.costPrice),
     sell_price: num(b.sell_price ?? b.sellPrice),
+    tax_percent: num(b.tax_percent ?? b.taxPercent),
     stock: num(b.stock),
     unit: str(b.unit, 'pcs').trim() || 'pcs',
     archived: b.archived ? 1 : 0,
@@ -201,10 +225,10 @@ export function createApi({ urls }) {
       const ts = nowIso();
       const info = db
         .prepare(
-          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, stock, unit, archived, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, tax_percent, stock, unit, archived, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.stock, f.unit, f.archived, ts, ts);
+        .run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.tax_percent, f.stock, f.unit, f.archived, ts, ts);
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid));
     }),
   );
@@ -216,8 +240,8 @@ export function createApi({ urls }) {
       if (!f.name) throw new Error('A product needs a name.');
       db.prepare(
         `UPDATE products SET name=?, barcode=?, brand=?, category=?, cost_price=?, sell_price=?,
-         stock=?, unit=?, archived=?, updated_at=? WHERE id=?`,
-      ).run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.stock, f.unit, f.archived, nowIso(), Number(req.params.id));
+         tax_percent=?, stock=?, unit=?, archived=?, updated_at=? WHERE id=?`,
+      ).run(f.name, f.barcode, f.brand, f.category, f.cost_price, f.sell_price, f.tax_percent, f.stock, f.unit, f.archived, nowIso(), Number(req.params.id));
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(Number(req.params.id)));
     }),
   );
@@ -231,10 +255,10 @@ export function createApi({ urls }) {
       // The barcode is deliberately not copied — two products cannot share one.
       const info = db
         .prepare(
-          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, stock, unit, archived, created_at, updated_at)
-           VALUES (?, '', ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+          `INSERT INTO products (name, barcode, brand, category, cost_price, sell_price, tax_percent, stock, unit, archived, created_at, updated_at)
+           VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
         )
-        .run(`${src.name} (copy)`, src.brand, src.category, src.cost_price, src.sell_price, src.stock, src.unit, ts, ts);
+        .run(`${src.name} (copy)`, src.brand, src.category, src.cost_price, src.sell_price, src.tax_percent, src.stock, src.unit, ts, ts);
       res.json(db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid));
     }),
   );
@@ -685,18 +709,86 @@ export function createApi({ urls }) {
     '/pair',
     guard(async (req, res) => {
       const pairing = createPairing();
-      // The phone must be sent to the https address: a phone browser will not
-      // open its camera on a plain http LAN address.
-      const base = urls.phoneBase;
+
+      // Where to send the phone. Hosted, it is the public https address the
+      // request actually came in on (read from the proxy headers, falling back
+      // to the configured PUBLIC_URL) — so the QR always points at the real
+      // site. On your own computer it is the Wi-Fi https address, because a
+      // phone browser will not open its camera on a plain http LAN address.
+      let base;
+      let insecureUrl;
+      if (urls.hosted) {
+        const proto = req.headers['x-forwarded-proto']?.split(',')[0].trim() || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host']?.split(',')[0].trim() || req.headers.host;
+        base = host ? `${proto}://${host}` : urls.publicUrl;
+        insecureUrl = `${base}/scan?code=${pairing.code}`; // one address only, already https
+      } else {
+        base = urls.phoneBase;
+        insecureUrl = `${urls.lanHttp}/scan?code=${pairing.code}`;
+      }
+
       const url = `${base}/scan?code=${encodeURIComponent(pairing.code)}`;
       const qr = await QRCode.toDataURL(url, { margin: 1, scale: 6 });
-      res.json({ code: pairing.code, url, qr, insecureUrl: `${urls.lanHttp}/scan?code=${pairing.code}` });
+      res.json({ code: pairing.code, url, qr, insecureUrl });
     }),
   );
 
   api.get(
     '/pair/:code/status',
     guard(async (req, res) => res.json(pairingStatus(str(req.params.code)))),
+  );
+
+  /* ---- location map (proxied so the Maps key never reaches a browser) ----- */
+
+  api.get(
+    '/map/static',
+    guard(async (req, res) => {
+      const img = await staticMapImage(req.query.lat, req.query.lng, {
+        width: num(req.query.w, 320),
+        height: num(req.query.h, 160),
+      });
+      if (!img) {
+        res.status(404).json({ error: 'No map available (no Maps key, or bad coordinates).' });
+        return;
+      }
+      res.setHeader('Content-Type', img.contentType);
+      res.send(img.buffer);
+    }),
+  );
+
+  api.get(
+    '/geocode/reverse',
+    guard(async (req, res) => res.json({ address: await reverseGeocode(req.query.lat, req.query.lng) })),
+  );
+
+  /* ---- location map (the Maps key stays on the server) ------------------- */
+
+  // A Static Maps PNG for one point, proxied so the key never reaches the
+  // browser. Missing key or unreachable Google -> 404, and the <img> simply
+  // shows nothing rather than the sale being blocked.
+  api.get(
+    '/map/static',
+    guard(async (req, res) => {
+      const image = await staticMapImage(req.query.lat, req.query.lng, {
+        width: Math.min(num(req.query.w, 320), 640),
+        height: Math.min(num(req.query.h, 160), 640),
+      });
+      if (!image) {
+        res.status(404).json({ error: 'No map available.' });
+        return;
+      }
+      res.setHeader('Content-Type', image.contentType);
+      res.send(image.buffer);
+    }),
+  );
+
+  // Turns the phone's GPS reading into a street address. Never throws.
+  api.get(
+    '/geocode/reverse',
+    guard(async (req, res) => {
+      const address = await reverseGeocode(req.query.lat, req.query.lng);
+      res.json({ address, ready: mapsReady() });
+    }),
   );
 
   /* ---- the in-progress sale ---------------------------------------------- */
@@ -766,6 +858,104 @@ export function createApi({ urls }) {
         lastBackupError: s.lastBackupError ?? '',
         keep: KEEP_SNAPSHOTS,
       });
+    }),
+  );
+
+  /* ---- the lock on the till -------------------------------------------------- */
+
+  /** Who is knocking, for the purpose of slowing down repeated guesses. */
+  const whoIs = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+
+  api.get(
+    '/auth/state',
+    guard(async (req, res) => {
+      res.json({
+        hasPasscode: hasPasscode(),
+        signedIn: isSignedIn(req),
+        devices: sessionCount(),
+      });
+    }),
+  );
+
+  /** First run only: choose the passcode. Refused once one exists. */
+  api.post(
+    '/auth/setup',
+    guard(async (req, res) => {
+      if (hasPasscode()) {
+        res.status(400).json({
+          error: 'A passcode is already set. Change it in Settings once you are signed in.',
+        });
+        return;
+      }
+      setPasscode(str(req.body?.passcode));
+      const { token, expires } = createSession(str(req.body?.label));
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/auth/login',
+    guard(async (req, res) => {
+      const who = whoIs(req);
+
+      // Someone sitting on your Wi-Fi trying codes gets slower and slower.
+      const wait = lockoutRemainingMs(who);
+      if (wait > 0) {
+        res.status(429).json({
+          error: `Too many wrong tries. Wait ${Math.ceil(wait / 1000)} seconds and try again.`,
+        });
+        return;
+      }
+
+      if (!passcodeMatches(str(req.body?.passcode))) {
+        const nextWait = recordMiss(who);
+        res.status(401).json({
+          error: nextWait
+            ? `Wrong passcode. Next try in ${Math.ceil(nextWait / 1000)} seconds.`
+            : 'Wrong passcode.',
+        });
+        return;
+      }
+
+      clearMisses(who);
+      const { token, expires } = createSession(str(req.body?.label));
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/auth/lock',
+    guard(async (req, res) => {
+      destroySession(readCookie(req, COOKIE_NAME));
+      clearSessionCookie(res);
+      res.json({ ok: true });
+    }),
+  );
+
+  /** Changing the passcode signs every device out. That is the point of it. */
+  api.post(
+    '/auth/passcode',
+    guard(async (req, res) => {
+      if (hasPasscode() && !passcodeMatches(str(req.body?.current))) {
+        res.status(401).json({ error: 'That is not your current passcode.' });
+        return;
+      }
+      setPasscode(str(req.body?.passcode));
+      const { token, expires } = createSession('this device');
+      setSessionCookie(res, token, expires);
+      res.json({ ok: true, signedOutOthers: true });
+    }),
+  );
+
+  /** Sign every device out, including this one. For a lost or stolen phone. */
+  api.post(
+    '/auth/sign-out-everywhere',
+    guard(async (req, res) => {
+      destroyAllSessions();
+      clearSessionCookie(res);
+      res.json({ ok: true });
     }),
   );
 

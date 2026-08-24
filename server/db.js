@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS products (
   category    TEXT    DEFAULT 'General',
   cost_price  REAL    NOT NULL DEFAULT 0,
   sell_price  REAL    NOT NULL DEFAULT 0,
+  tax_percent REAL    NOT NULL DEFAULT 0,
   stock       REAL    NOT NULL DEFAULT 0,
   unit        TEXT    DEFAULT 'pcs',
   archived    INTEGER NOT NULL DEFAULT 0,
@@ -136,6 +137,7 @@ function addColumnIfMissing(table, column, definition) {
 // Receipts issued before the tax rule became a choice were all worked out with
 // tax applied after the discount, so that is the right value for them.
 addColumnIfMissing('receipts', 'tax_base', "TEXT NOT NULL DEFAULT 'after-discount'");
+addColumnIfMissing('products', 'tax_percent', 'REAL NOT NULL DEFAULT 0');
 
 /* ------------------------------------------------------------------ *
  * settings — a tiny key/value store, values are JSON
@@ -161,6 +163,9 @@ const DEFAULT_SETTINGS = {
   lastBackupAt: '',
   lastBackupError: '',
   lowStockThreshold: 5,
+  // The Google Maps key can live here (entered in Settings) as well as in .env.
+  // It is never sent to the browser — the server redacts it from settings responses.
+  mapsApiKey: '',
 };
 
 export function getSetting(key) {

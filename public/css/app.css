@@ -22,7 +22,7 @@
   --radius-sm: 10px;
   --radius-pill: 999px;
 
-  --sidebar-width: 244px;
+  --sidebar-width: 300px;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -185,12 +185,12 @@ a {
 }
 .brand .name {
   font-weight: 800;
-  font-size: 18px;
+  font-size: 21px;
   line-height: 1.15;
 }
 .brand .tagline {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .nav {
@@ -201,17 +201,17 @@ a {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  padding: var(--s3) var(--s3);
+  padding: var(--s3) var(--s4);
   border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 17px;
 }
 .nav a .icon {
-  width: 22px;
+  width: 28px;
   text-align: center;
-  font-size: 17px;
+  font-size: 21px;
   flex: none;
 }
 .nav a:hover {
@@ -756,6 +756,119 @@ textarea::placeholder {
   color: #6b7280;
   margin-top: var(--s4);
 }
+.paper .p-map {
+  display: block;
+  width: 100%;
+  margin-top: var(--s3);
+  border-radius: 6px;
+}
+
+/* The "Capture location" progress line, next to its button. */
+.map-status {
+  font-size: 12px;
+  align-self: center;
+}
+.map-status.working { color: var(--muted); }
+.map-status.ok { color: var(--accent-text); font-weight: 700; }
+.map-status.err { color: var(--danger, #c0392b); }
+
+/* The preview shows both pages of the memo, one above the other. */
+.paper-stack {
+  display: grid;
+  gap: var(--s5);
+  width: 100%;
+}
+.paper-wrap {
+  display: grid;
+  gap: var(--s2);
+  justify-items: center;
+  width: 100%;
+}
+.paper-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* A one-line hint under a field. Sits on its own line, quiet, and never crowds
+   the input above it. */
+.field-hint {
+  display: block;
+  margin-top: var(--s2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* The "Back up & sync now" progress line, next to its button. */
+.backup-status {
+  font-size: 13px;
+  align-self: center;
+}
+.backup-status.working { color: var(--muted); }
+.backup-status.ok { color: var(--accent-text); font-weight: 700; }
+.backup-status.err { color: var(--danger, #c0392b); }
+
+/* The tax-rule note: a quiet full-width chip below the discount/tax/cash row,
+   so those three inputs stay perfectly aligned and the note has room to sit on
+   one line instead of wrapping awkwardly inside the Tax box. */
+.tax-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card-2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tax-note-ico {
+  flex: none;
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* A card briefly flashes when you are sent straight to it (e.g. the Google
+   card from the sidebar's Sign in button), so it is obvious where you landed. */
+@keyframes cardFlash {
+  from { box-shadow: 0 0 0 2px var(--accent); }
+  to { box-shadow: 0 0 0 2px transparent; }
+}
+.card.flash {
+  animation: cardFlash 1.6s ease-out;
+}
+
+/* Diagnostics: one circle per check, all the same size and shape, so a tick
+   and a cross read as a row rather than a jumble. */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--card-2, transparent);
+}
+.status-dot.ok {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink, #fff);
+}
+.status-dot.off {
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 45%, var(--line));
+  color: var(--danger, #c0392b);
+}
 
 .item-row {
   display: grid;
@@ -826,10 +939,14 @@ textarea::placeholder {
   display: grid;
   gap: var(--s4);
 }
-.receipt-row .row-actions {
+.row-actions {
   display: flex;
-  gap: var(--s2);
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+.receipt-row .row-actions {
+  gap: var(--s2);
 }
 
 /* ==========================================================================
@@ -882,6 +999,25 @@ textarea::placeholder {
 /* ==========================================================================
    small screens — the app is usable on the phone browser too
    ========================================================================== */
+
+/* Side by side (wide screens): the form and the live preview each get their
+   own scrollbar, so a long receipt and the two-page preview scroll on their own
+   rather than dragging the whole page up and down together. */
+@media (min-width: 1081px) {
+  .receipt-layout {
+    height: calc(100vh - 2 * var(--s6));
+  }
+  .receipt-layout > * {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    padding-inline-end: var(--s3);
+  }
+  .preview-rail {
+    position: static;
+    align-content: start;
+  }
+}
 
 @media (max-width: 1080px) {
   .receipt-layout {

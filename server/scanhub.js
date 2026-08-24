@@ -20,6 +20,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { WebSocketServer } from 'ws';
+import { hasPasscode, isSignedIn } from './auth.js';
 
 /** How many undelivered scans we hold for a computer that is not listening. */
 const MAX_QUEUE = 200;
@@ -137,6 +138,15 @@ export function attachScanHub(servers, lookupProduct) {
         socket.destroy();
         return;
       }
+      // A socket is a way in like any other. The phone signs in with the same
+      // passcode as the computer, so a stranger who photographs the QR code
+      // over your shoulder still cannot attach to it.
+      if (hasPasscode() && !isSignedIn(req)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req, url);
       });

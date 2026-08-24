@@ -115,12 +115,33 @@ function readKey(name) {
   return v;
 }
 
+/**
+ * Hosted mode: the app is running on a server on the internet, not on the
+ * shopkeeper's own computer. It is on when HOSTED=1, or automatically on Render
+ * (which sets RENDER=true). In hosted mode the app runs a single plain-http
+ * server and lets the host put https in front of it, sends the phone to the
+ * host's public web address instead of a Wi-Fi IP, and marks the login cookie
+ * Secure because the connection really is https.
+ */
+const hosted = read('HOSTED') === '1' || read('RENDER').toLowerCase() === 'true';
+
+/** The public https address the app is reached at, e.g. https://cashmemer.onrender.com */
+const publicUrl = (read('PUBLIC_URL') || read('RENDER_EXTERNAL_URL') || '').replace(/\/$/, '');
+
 export const env = {
   hasEnvFile: existsSync(ENV_FILE),
+  hosted,
+  publicUrl,
+  // On the public internet there must be a passcode from the very first request,
+  // or whoever finds the address first could set it themselves. Seeding it from
+  // the environment locks the door before anyone can knock. Only used once — a
+  // passcode set inside the app later wins and is kept on the permanent disk.
+  initialPasscode: read('SETUP_PASSCODE'),
   port: Number(read('PORT', '4000')) || 4000,
   httpsPort: Number(read('HTTPS_PORT', '4001')) || 4001,
   exchangeRateApiKey: readKey('EXCHANGE_RATE_API_KEY'),
   geminiApiKey: readKey('GEMINI_API_KEY'),
+  mapsApiKey: readKey('MAPS_API_KEY'),
   googleClientId: readKey('GOOGLE_CLIENT_ID'),
   googleClientSecret: readKey('GOOGLE_CLIENT_SECRET'),
 };
@@ -142,6 +163,12 @@ export function featureStatus() {
       key: 'GEMINI_API_KEY',
       where: 'https://aistudio.google.com/apikey',
       note: 'The one-sentence weekly insight. All six weekly numbers work without it.',
+    },
+    maps: {
+      ready: Boolean(env.mapsApiKey),
+      key: 'MAPS_API_KEY',
+      where: 'https://console.cloud.google.com/google/maps-apis/credentials',
+      note: 'Shows where each sale happened as a map on page 2, and fills the address from GPS.',
     },
     google: {
       ready: Boolean(env.googleClientId && env.googleClientSecret),

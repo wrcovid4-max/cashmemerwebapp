@@ -9,8 +9,8 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
+    "start": "node scripts/run.js",
+    "dev": "node --watch scripts/run.js",
     "postinstall": "node scripts/vendor.js",
     "check": "node scripts/check.js"
   },
