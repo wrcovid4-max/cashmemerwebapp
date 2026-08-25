@@ -125,6 +125,7 @@ export const api = {
   sync: {
     status: () => request('GET', '/api/sync/status'),
     preview: () => request('POST', '/api/sync/preview', {}),
+    pull: () => request('POST', '/api/sync/pull', {}),
   },
 
   auth: {

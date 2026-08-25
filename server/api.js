@@ -20,7 +20,7 @@ import { exportDatabase, importDatabase } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
 import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
 import { firebaseStatus, firebaseReady } from './firebase.js';
-import { preview as firebasePreview } from './firesync.js';
+import { preview as firebasePreview, pull as firebasePull } from './firesync.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -155,8 +155,11 @@ export function createApi({ urls }) {
 
   api.get('/sync/status', guard(async (req, res) => res.json(await firebaseStatus())));
 
-  // Step one: read-only. Counts what is already in your cloud for this account.
+  // Read-only: counts what is already in your cloud for this account.
   api.post('/sync/preview', guard(async (req, res) => res.json(await firebasePreview())));
+
+  // Pull every cloud receipt into local History (idempotent — no duplicates).
+  api.post('/sync/pull', guard(async (req, res) => res.json(await firebasePull())));
 
   /* ---- settings ------------------------------------------------------ */
 

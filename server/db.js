@@ -139,6 +139,13 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing('receipts', 'tax_base', "TEXT NOT NULL DEFAULT 'after-discount'");
 addColumnIfMissing('products', 'tax_percent', 'REAL NOT NULL DEFAULT 0');
 
+// The id of the matching document in the cloud, so a re-sync updates the same
+// row instead of making a second copy. Locally-made rows leave it null.
+addColumnIfMissing('receipts', 'cloud_id', 'TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_receipts_cloud ON receipts(cloud_id) WHERE cloud_id IS NOT NULL');
+addColumnIfMissing('products', 'cloud_id', 'TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_cloud ON products(cloud_id) WHERE cloud_id IS NOT NULL');
+
 /* ------------------------------------------------------------------ *
  * settings — a tiny key/value store, values are JSON
  * ------------------------------------------------------------------ */

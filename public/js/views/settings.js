@@ -456,11 +456,13 @@ export async function renderSettings({ params } = {}) {
                 return;
               }
               btn.disabled = true;
-              gSyncStatus.textContent = 'Checking your cloud…';
+              gSyncStatus.textContent = 'Syncing from your cloud…';
               gSyncStatus.className = 'backup-status working';
               try {
-                const r = await api.sync.preview();
-                gSyncStatus.textContent = `✓ Connected — ${r.cashMemos} receipts, ${r.manualProducts} products in your cloud`;
+                const r = await api.sync.pull();
+                gSyncStatus.textContent =
+                  `✓ Synced ${r.receipts.total} receipts and ${r.products.total} products — ` +
+                  'open History and Inventory';
                 gSyncStatus.className = 'backup-status ok';
               } catch (err) {
                 gSyncStatus.textContent = err.message;
