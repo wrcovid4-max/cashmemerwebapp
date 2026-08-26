@@ -8,8 +8,10 @@
  * Idempotent: every cloud receipt is matched by its document id (cloud_id), so
  * running a sync again updates the same local receipt instead of duplicating it.
  */
+import { randomUUID } from 'node:crypto';
 import { firestore, resolveUid } from './firebase.js';
 import { db, allSettings, nowIso, nextReceiptNumber } from './db.js';
+import { computeTotals } from '../shared/totals.js';
 
 /* ---- small helpers ------------------------------------------------------- */
 
@@ -26,6 +28,10 @@ const numOrNull = (v) => {
 const isoFromMs = (ms) => {
   const n = Number(ms);
   return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : nowIso();
+};
+const msFromIso = (iso) => {
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : Date.now();
 };
 
 /* ---- field mapping: a cloud cashMemo -> a local receipt row -------------- */
@@ -96,10 +102,19 @@ export function importMemos(docs) {
     `UPDATE receipts SET ${UPDATE_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
   );
   const findByCloud = db.prepare('SELECT id FROM receipts WHERE cloud_id = ?');
+  const numberTaken = db.prepare('SELECT 1 FROM receipts WHERE number = ?');
   const clearItems = db.prepare('DELETE FROM receipt_items WHERE receipt_id = ?');
   const insertItem = db.prepare(
     'INSERT INTO receipt_items (receipt_id, name, qty, price, sort_order) VALUES (?, ?, ?, ?, ?)',
   );
+
+  // Receipt numbers must be unique. The cloud's numeric id is used when it is
+  // free; otherwise (the cloud reuses ids, so duplicates exist) a fresh number
+  // is assigned. This is what stopped the "UNIQUE constraint failed" on import.
+  const freshNumber = (preferred) => {
+    if (preferred != null && !numberTaken.get(preferred)) return preferred;
+    return nextReceiptNumber();
+  };
 
   let imported = 0;
   let updated = 0;
@@ -117,7 +132,7 @@ export function importMemos(docs) {
         receiptId = existing.id;
         updated += 1;
       } else {
-        if (row.number == null) row.number = nextReceiptNumber();
+        row.number = freshNumber(row.number);
         const info = insertReceipt.run(...COLS.map((c) => row[c]));
         receiptId = info.lastInsertRowid;
         imported += 1;
@@ -195,6 +210,66 @@ export function importProducts(docs) {
   return { imported, updated };
 }
 
+/* ---- reverse mapping: local rows -> cloud documents (for Back up) --------- */
+
+/** A local receipt (+ its items) mapped to the cloud cashMemo shape. */
+export function rowToMemo(r, items) {
+  const totals = computeTotals({
+    items: items.map((i) => ({ qty: i.qty, price: i.price })),
+    discount: r.discount,
+    taxPercent: r.tax_percent,
+    cashGiven: r.cash_given,
+    taxBase: r.tax_base,
+  });
+  return {
+    accountEmail: r.issuer_email || '',
+    accountName: r.issuer_name || '',
+    title: r.title || '',
+    place: r.place || '',
+    category: r.category || 'Shopping',
+    currency: r.currency || 'PKR',
+    paymentType: r.payment_method || 'Cash',
+    customerName: r.customer_name || '',
+    customerPhone: r.customer_phone || '',
+    customerEmail: r.customer_email || '',
+    customerAddress: r.customer_address || '',
+    discountType: (r.discount || 0) > 0 ? 'Flat' : 'None',
+    discountValue: r.discount || 0,
+    taxPercentage: r.tax_percent || 0,
+    subtotal: totals.subtotal,
+    grandTotal: totals.grandTotal,
+    cashGiven: r.cash_given || 0,
+    changeAmount: totals.change,
+    note: r.note1 || '',
+    notePage2: r.note2 || '',
+    latitude: r.lat == null ? null : r.lat,
+    longitude: r.lng == null ? null : r.lng,
+    locationAddress: r.location_address || '',
+    signatureBase64: r.signature || null,
+    signaturePath: null,
+    id: r.number,
+    timestamp: msFromIso(r.created_at),
+    lastModified: msFromIso(r.updated_at),
+    items: items.map((i) => ({ name: i.name, quantity: i.qty, totalPrice: i.qty * i.price })),
+  };
+}
+
+/** A local product mapped to the cloud manualProduct shape. */
+export function rowToProduct(p) {
+  return {
+    productUuid: p.cloud_id || null, // filled with the doc id at push time
+    name: p.name || '',
+    category: p.category || 'General',
+    costPrice: p.cost_price || 0,
+    sellingPrice: p.sell_price || 0,
+    unit: p.unit || 'pcs',
+    isArchived: Boolean(p.archived),
+    notes: '',
+    id: 0,
+    lastUpdated: msFromIso(p.updated_at),
+  };
+}
+
 /* ---- the Firestore side -------------------------------------------------- */
 
 /** The signed-in Google account's Firebase UID, or throws a plain reason. */
@@ -239,4 +314,48 @@ export async function pull() {
     receipts: { total: memoSnap.size, ...receipts },
     products: { total: prodSnap.size, ...products },
   };
+}
+
+/**
+ * Pushes every local receipt and product UP to the cloud (the Back up button).
+ * Idempotent: rows that came from the cloud keep their document id; locally-made
+ * rows get a new id, saved back onto the row, so a later push updates the same
+ * document instead of making a duplicate.
+ */
+export async function push() {
+  const cloud = await firestore();
+  if (!cloud) throw new Error('Firebase is not connected. Add your service-account key on this machine.');
+  const uid = await currentUid();
+  const base = cloud.collection('users').doc(uid);
+
+  const setReceiptCloud = db.prepare('UPDATE receipts SET cloud_id = ? WHERE id = ?');
+  const setProductCloud = db.prepare('UPDATE products SET cloud_id = ? WHERE id = ?');
+  const itemsFor = db.prepare('SELECT name, qty, price FROM receipt_items WHERE receipt_id = ? ORDER BY sort_order, id');
+
+  const writes = [];
+
+  for (const r of db.prepare('SELECT * FROM receipts').all()) {
+    const docId = r.cloud_id || randomUUID();
+    if (!r.cloud_id) setReceiptCloud.run(docId, r.id);
+    writes.push({ ref: base.collection('cashMemos').doc(docId), data: rowToMemo(r, itemsFor.all(r.id)) });
+  }
+
+  for (const p of db.prepare('SELECT * FROM products').all()) {
+    const docId = p.cloud_id || randomUUID();
+    if (!p.cloud_id) setProductCloud.run(docId, p.id);
+    const data = rowToProduct(p);
+    data.productUuid = docId;
+    writes.push({ ref: base.collection('manualProducts').doc(docId), data });
+  }
+
+  // Firestore batches take up to 500 writes; stay well under.
+  for (let i = 0; i < writes.length; i += 400) {
+    const batch = cloud.batch();
+    for (const w of writes.slice(i, i + 400)) batch.set(w.ref, w.data, { merge: true });
+    await batch.commit();
+  }
+
+  const receipts = db.prepare('SELECT COUNT(*) AS n FROM receipts').get().n;
+  const products = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
+  return { uid, receipts, products };
 }

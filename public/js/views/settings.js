@@ -421,19 +421,17 @@ export async function renderSettings({ params } = {}) {
           {
             onclick: async (e) => {
               const btn = e.currentTarget;
+              if (!store.features?.firebase?.ready) {
+                gSyncStatus.textContent = 'Cloud backup needs your Firebase key on this device first.';
+                gSyncStatus.className = 'backup-status working';
+                return;
+              }
               btn.disabled = true;
-              gSyncStatus.textContent = 'Backing up…';
+              gSyncStatus.textContent = 'Backing up to your cloud…';
               gSyncStatus.className = 'backup-status working';
               try {
-                const res = await fetch('/api/backup/export');
-                if (!res.ok) throw new Error('Backup could not be created.');
-                const blob = await res.blob();
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `cashmemer-backup-${new Date().toISOString().slice(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(a.href);
-                gSyncStatus.textContent = '✓ Backup done';
+                const r = await api.sync.push();
+                gSyncStatus.textContent = `✓ Backed up ${r.receipts} receipts and ${r.products} products to your cloud`;
                 gSyncStatus.className = 'backup-status ok';
               } catch (err) {
                 gSyncStatus.textContent = err.message;
@@ -479,8 +477,9 @@ export async function renderSettings({ params } = {}) {
       h(
         'p.small.muted',
         { style: { marginTop: 'var(--s2)' } },
-        'Back up saves a file to this device. Sync keeps your shop in your Google account, across ' +
-          'every device — through Firebase, never a Drive folder.',
+        'Back up sends your shop up to your Google account. Sync brings down what other devices ' +
+          'have saved. Together they keep every device in step — through Firebase, never a Drive ' +
+          'folder. (A plain file copy is still under Backup & restore above.)',
       ),
     ),
   );

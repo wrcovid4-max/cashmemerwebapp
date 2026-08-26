@@ -232,79 +232,95 @@ export async function renderReceiptForm({ params, go }) {
 
   const itemsHost = h('.grid', { style: { display: 'grid', gap: 'var(--s2)' } });
 
+  /**
+   * One item row. Typing updates the data, this row's line total, and the
+   * preview — but never re-mounts the row, so the field keeps focus keystroke
+   * after keystroke. The whole list is only rebuilt when a row is added or
+   * removed (paintItems).
+   */
+  function itemRow(item, index) {
+    const lineSpan = h('span', money(lineTotal(item), receipt.currency));
+    const refreshLine = () => {
+      lineSpan.textContent = money(lineTotal(item), receipt.currency);
+      repaint();
+    };
+
+    const priceInput = h('input', {
+      type: 'number',
+      min: '0',
+      step: 'any',
+      value: item.price,
+      oninput: (e) => {
+        item.price = Number(e.target.value) || 0;
+        refreshLine();
+      },
+    });
+
+    const nameInput = h('input', {
+      value: item.name,
+      list: 'productNames',
+      placeholder: t('productName'),
+      oninput: (e) => {
+        item.name = e.target.value;
+        // Choosing a known product fills its price in — updated directly on the
+        // price field so the name field you are typing in never loses focus.
+        const key = e.target.value.trim().toLowerCase();
+        const match = products.find((p) => p.name.toLowerCase() === key);
+        const listed = priceList.find((p) => p.name.toLowerCase() === key);
+        if (match && !item.price) {
+          item.price = match.sell_price;
+          item.productId = match.id;
+          priceInput.value = item.price;
+        } else if (listed && !item.price) {
+          item.price = listed.price;
+          priceInput.value = item.price;
+        }
+        refreshLine();
+      },
+    });
+
+    const qtyInput = h('input', {
+      type: 'number',
+      min: '0',
+      step: 'any',
+      value: item.qty,
+      oninput: (e) => {
+        item.qty = Number(e.target.value) || 0;
+        refreshLine();
+      },
+    });
+
+    return h(
+      '.item-row',
+      nameInput,
+      qtyInput,
+      priceInput,
+      h(
+        '.line-total',
+        { style: { display: 'flex', gap: 'var(--s2)', alignItems: 'center' } },
+        lineSpan,
+        h(
+          'button.btn.small.ghost',
+          {
+            title: t('delete'),
+            onclick: () => {
+              receipt.items.splice(index, 1);
+              paintItems();
+              repaint();
+            },
+          },
+          '✕',
+        ),
+      ),
+    );
+  }
+
   function paintItems() {
     mount(
       itemsHost,
       receipt.items.length === 0
         ? h('p.muted.small', t('noItems'))
-        : receipt.items.map((item, index) =>
-            h(
-              '.item-row',
-              h('input', {
-                value: item.name,
-                list: 'productNames',
-                placeholder: t('productName'),
-                oninput: (e) => {
-                  item.name = e.target.value;
-                  // Choosing a known product fills its price in, so the common
-                  // case is one keystroke and a tab.
-                  const match = products.find(
-                    (p) => p.name.toLowerCase() === e.target.value.trim().toLowerCase(),
-                  );
-                  const listed = priceList.find(
-                    (p) => p.name.toLowerCase() === e.target.value.trim().toLowerCase(),
-                  );
-                  if (match && !item.price) {
-                    item.price = match.sell_price;
-                    item.productId = match.id;
-                  } else if (listed && !item.price) {
-                    item.price = listed.price;
-                  }
-                  paintItems();
-                  repaint();
-                },
-              }),
-              h('input', {
-                type: 'number',
-                min: '0',
-                step: 'any',
-                value: item.qty,
-                oninput: (e) => {
-                  item.qty = Number(e.target.value) || 0;
-                  paintItems();
-                  repaint();
-                },
-              }),
-              h('input', {
-                type: 'number',
-                min: '0',
-                step: 'any',
-                value: item.price,
-                oninput: (e) => {
-                  item.price = Number(e.target.value) || 0;
-                  paintItems();
-                  repaint();
-                },
-              }),
-              h(
-                '.line-total',
-                { style: { display: 'flex', gap: 'var(--s2)', alignItems: 'center' } },
-                h('span', money(lineTotal(item), receipt.currency)),
-                h(
-                  'button.btn.small.ghost',
-                  {
-                    title: t('delete'),
-                    onclick: () => {
-                      receipt.items.splice(index, 1);
-                      paintItems();
-                      repaint();
-                    },
-                  },
-                  '✕',
-                ),
-              ),
-            ),
-          ),
+        : receipt.items.map((item, index) => itemRow(item, index)),
     );
   }
 

@@ -20,7 +20,7 @@ import { exportDatabase, importDatabase } from './backup.js';
 import { createPairing, pairingStatus } from './scanhub.js';
 import { staticMapImage, reverseGeocode, mapsReady } from './maps.js';
 import { firebaseStatus, firebaseReady } from './firebase.js';
-import { preview as firebasePreview, pull as firebasePull } from './firesync.js';
+import { preview as firebasePreview, pull as firebasePull, push as firebasePush } from './firesync.js';
 import {
   hasPasscode, setPasscode, passcodeMatches, createSession, destroySession,
   destroyAllSessions, sessionCount, setSessionCookie, clearSessionCookie,
@@ -160,6 +160,9 @@ export function createApi({ urls }) {
 
   // Pull every cloud receipt into local History (idempotent — no duplicates).
   api.post('/sync/pull', guard(async (req, res) => res.json(await firebasePull())));
+
+  // Back up: push every local receipt and product up to the cloud (idempotent).
+  api.post('/sync/push', guard(async (req, res) => res.json(await firebasePush())));
 
   /* ---- settings ------------------------------------------------------ */
 
